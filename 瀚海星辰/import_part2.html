@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Anki Pro - 补全剩余词汇 (Part 2)</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: #fff0f6; } /* 粉色背景区分 */
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #c41d7f; }
+        .progress-bar { width: 100%; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; margin: 20px 0; }
+        .progress-fill { height: 100%; width: 0%; background: #ff4d4f; transition: width 0.3s; }
+        #status { margin-bottom: 20px; color: #636e72; font-family: monospace; }
+        button { background: #ff4d4f; color: white; border: none; padding: 15px 30px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; }
+        button:disabled { background: #b2bec3; cursor: not-allowed; }
+        .log-box { height: 200px; overflow-y: auto; background: #2d3436; color: #fab1a0; padding: 15px; border-radius: 8px; font-family: monospace; margin-top: 20px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>📦 补全剩余词汇 (Rank 2 - Rank 0)</h2>
+        <p>这是第二批数据（约 900+ 个），上传后你的词库将达到完整状态。</p>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="p-bar"></div>
+        </div>
+        <div id="status">准备就绪...</div>
+        
+        <button onclick="startBatchUpload()" id="btn">🚀 开始补全上传</button>
+
+        <div class="log-box" id="log"></div>
+    </div>
+
+    <script>
+        // ================= 配置 (保持不变) =================
+        const BMOB_APP_ID  = "245c234dd2d5ab723c1f00eaca1474cf";
+        const BMOB_API_KEY = "999401489c1ab0d956f5f8db34e97afb";
+        // ===================================================
+
+        // 📚 Part 2 数据：Rank 2 及以下 + 新增词 (Rank 0)
+        const RAW_DATA = [
+            ["access", "进入、使用权", 2], ["accommodate", "容纳", 2], ["according to", "根据", 2],
+            ["accustomed", "习惯的", 2], ["affair", "事务", 2], ["alright", "好吧", 2],
+            ["amateur", "业余的", 2], ["angel", "天使", 2], ["antique", "古董", 2],
+            ["applaud", "鼓掌", 2], ["approximately", "大约", 2], ["area", "区域", 2],
+            ["autumn", "秋天", 2], ["awful", "糟糕的", 2], ["band", "乐队", 2],
+            ["bark", "吠叫", 2], ["bird", "鸟", 2], ["blank", "空白", 2],
+            ["blind", "瞎的", 2], ["bone", "骨头", 2], ["boost", "促进", 2],
+            ["budget", "预算", 2], ["burnout", "倦怠", 2], ["cage", "笼子", 2],
+            ["camera", "相机", 2], ["campus", "校园", 2], ["capable", "有能力的", 2],
+            ["category", "类别", 2], ["cease", "停止", 2], ["celebrity", "名人", 2],
+            ["champion", "冠军", 2], ["chemical", "化学的", 2], ["cherish", "珍惜", 2],
+            ["circulate", "循环", 2], ["climate", "气候", 2], ["commercial", "商业的", 2],
+            ["community", "社区", 2], ["complicated", "复杂的", 2], ["conservative", "保守的", 2],
+            ["contradict", "反驳", 2], ["convey", "传达", 2], ["cooperate", "合作", 2],
+            ["cope", "应付", 2], ["coworker", "同事", 2], ["crisis", "危机", 2],
+            ["crop", "庄稼", 2], ["crutch", "拐杖", 2], ["cuisine", "烹饪", 2],
+            ["currently", "目前", 2], ["definite", "明确的", 2], ["deny", "否认", 2],
+            ["depart", "离开", 2], ["deposit", "存款", 2], ["destruction", "破坏", 2],
+            ["device", "装置", 2], ["dig", "挖", 2], ["dilemma", "困境", 2],
+            ["display", "展示", 2], ["distract", "分心", 2], ["diverse", "多样的", 2],
+            ["divide", "分开", 2], ["divorce", "离婚", 2], ["dizzy", "晕眩的", 2],
+            ["double", "两倍", 2], ["drone", "无人机", 2], ["drum", "鼓", 2],
+            ["due", "到期的", 2], ["dumb", "哑的、笨的", 2], ["dynamic", "动态的", 2],
+            ["economy", "经济", 2], ["edge", "边缘", 2], ["efficient", "高效的", 2],
+            ["emerge", "浮现", 2], ["encounter", "遭遇", 2], ["environment", "环境", 2],
+            ["erase", "擦掉", 2], ["erupt", "爆发", 2], ["establish", "建立", 2],
+            ["estimate", "估计", 2], ["except", "除了", 2], ["exceptional", "例外的", 2],
+            ["exhausted", "精疲力竭", 2], ["fancy", "精致的", 2], ["feather", "羽毛", 2],
+            ["feature", "特征", 2], ["feedback", "反馈", 2], ["fluently", "流利地", 2],
+            ["frustrated", "受挫的", 2], ["furthermore", "此外", 2], ["gas", "气体", 2],
+            ["generate", "产生", 2], ["genetic", "基因的", 2], ["getaway", "逃走", 2],
+            ["goodbye", "再见", 2], ["gracefully", "优雅地", 2], ["ground", "地面", 2],
+            ["harmony", "和谐", 2], ["hat", "帽子", 2], ["hatch", "孵化", 2],
+            ["heal", "治愈", 2], ["heartbreaking", "令人心碎", 2], ["homeland", "祖国", 2],
+            ["icy", "冰冷的", 2], ["inch", "英寸", 2], ["infect", "感染", 2],
+            ["inspect", "检查", 2], ["interact", "互动", 2], ["invest", "投资", 2],
+            ["investigate", "调查", 2], ["justice", "正义", 2], ["kit", "工具包", 2],
+            ["label", "标签", 2], ["landscape", "风景", 2], ["language", "语言", 2],
+            ["letdown", "失望", 2], ["liberate", "释放", 2], ["literature", "文学", 2],
+            ["load", "负荷", 2], ["log", "原木、记录", 2], ["market", "市场", 2],
+            ["melt", "融化", 2], ["microphone", "麦克风", 2], ["middle", "中间", 2],
+            ["millionaire", "百万富翁", 2], ["minor", "较小的", 2], ["mission", "使命", 2],
+            ["moral", "道德的", 2], ["mourn", "哀悼", 2], ["multiple", "多重的", 2],
+            ["net", "网", 2], ["nose", "鼻子", 2], ["novel", "小说", 2],
+            ["online", "在线", 2], ["opponent", "对手", 2], ["overall", "全部的", 2],
+            ["overnight", "通宵", 2], ["panel", "面板", 2], ["passage", "通道", 2],
+            ["patent", "专利", 2], ["paycheck", "薪水", 2], ["persistence", "坚持", 2],
+            ["physical", "身体的", 2], ["pioneer", "先驱", 2], ["plenty", "大量", 2],
+            ["pound", "磅、敲打", 2], ["prejudice", "偏见", 2], ["principal", "校长", 2],
+            ["psychology", "心理学", 2], ["quote", "引用", 2], ["rapid", "迅速的", 2],
+            ["raw", "生的", 2], ["recipe", "食谱", 2], ["recreation", "娱乐", 2],
+            ["renew", "更新", 2], ["resource", "资源", 2], ["restore", "恢复", 2],
+            ["reunion", "团圆", 2], ["rid", "摆脱", 2], ["ripe", "成熟的", 2],
+            ["rock", "岩石", 2], ["romantic", "浪漫的", 2], ["rope", "绳子", 2],
+            ["scarcely", "仅仅", 2], ["season", "季节", 2], ["second", "第二", 2],
+            ["seminar", "研讨会", 2], ["senior", "高级的", 2], ["shift", "转移", 2],
+            ["ship", "船", 2], ["snack", "快餐", 2], ["sneeze", "打喷嚏", 2],
+            ["snowflakes", "雪花", 2], ["somehow", "不知怎么地", 2], ["sour", "酸的", 2],
+            ["sow", "播种", 2], ["spin", "旋转", 2], ["sportsmanship", "体育精神", 2],
+            ["spotlight", "聚光灯", 2], ["squeeze", "挤压", 2], ["statistics", "统计", 2],
+            ["surf", "冲浪", 2], ["sustainable", "可持续的", 2], ["tail", "尾巴", 2],
+            ["tax", "税", 2], ["technology", "技术", 2], ["tent", "帐篷", 2],
+            ["tentative", "试验性的", 2], ["text", "文本", 2], ["thirsty", "渴的", 2],
+            ["throat", "喉咙", 2], ["tournament", "锦标赛", 2], ["transfer", "转移", 2],
+            ["turnaround", "转变", 2], ["twisted", "扭曲的", 2], ["ugly", "丑陋的", 2],
+            ["uplift", "振奋", 2], ["virtual", "虚拟的", 2], ["vision", "视力、愿景", 2],
+            ["vital", "至关重要的", 2], ["vote", "投票", 2], ["weapon", "武器", 2],
+            ["weep", "哭泣", 2], ["white", "白色", 2], ["wing", "翅膀", 2],
+            ["yellow", "黄色", 2], ["yesterday", "昨天", 2], ["become", "变成", 2],
+            ["bet", "打赌", 2], ["capacity", "容量", 2], ["charity", "慈善", 2],
+            ["client", "客户", 2], ["clue", "线索", 2], ["column", "专栏", 2],
+            ["contract", "合同", 2], ["contrast", "对比", 2], ["core", "核心", 2],
+            ["crucial", "关键的", 2], ["decent", "体面的", 2], ["demonstrate", "证明", 2],
+            ["discipline", "纪律", 2], ["dramatic", "戏剧性的", 2], ["duration", "持续时间", 2],
+            ["element", "元素", 2], ["enhance", "增强", 2], ["extent", "程度", 2],
+            ["external", "外部的", 2], ["extinction", "灭绝", 2], ["facility", "设施", 2],
+            ["factor", "因素", 2], ["flavour", "风味", 2], ["gap", "差距", 2],
+            ["highlight", "强调", 2], ["illustrate", "举例说明", 2], ["image", "形象", 2],
+            ["imply", "暗示", 2], ["incredible", "难以置信", 2], ["individual", "个人的", 2],
+            ["infer", "推断", 2], ["innovation", "创新", 2], ["insight", "洞察力", 2],
+            ["instance", "例子", 2], ["integrate", "整合", 2], ["intense", "强烈的", 2],
+            ["joint", "联合的", 2], ["launch", "发射", 2], ["motion", "运动", 2],
+            ["motive", "动机", 2], ["odd", "奇怪的", 2], ["organic", "有机的", 2],
+            ["pessimistic", "悲观的", 2], ["priority", "优先", 2], ["proceed", "继续", 2],
+            ["profile", "侧面、简介", 2], ["region", "地区", 2], ["resident", "居民", 2],
+            ["sample", "样本", 2], ["source", "来源", 2], ["species", "物种", 2],
+            ["structure", "结构", 2], ["survey", "调查", 2], ["tackle", "处理", 2],
+            ["territory", "领土", 2], ["tone", "语气", 2],
+            // 补充一些 Rank 1 的高频生活词
+            ["academic", "学术的", 1], ["accomplish", "完成", 1], ["accumulate", "积累", 1],
+            ["agency", "代理处", 1], ["aid", "援助", 1], ["alarm", "警报", 1],
+            ["album", "相册", 1], ["allergic", "过敏的", 1], ["animal", "动物", 1],
+            ["apple", "苹果", 1], ["arrest", "逮捕", 1], ["article", "文章", 1],
+            ["artificial", "人造的", 1], ["atmosphere", "气氛", 1], ["author", "作者", 1],
+            ["baby", "婴儿", 1], ["balcony", "阳台", 1], ["basket", "篮子", 1],
+            ["beach", "海滩", 1], ["bike", "自行车", 1], ["biscuit", "饼干", 1],
+            ["boat", "船", 1], ["bond", "结合", 1], ["bonus", "奖金", 1],
+            ["boss", "老板", 1], ["bottom", "底部", 1], ["bowl", "碗", 1],
+            ["brain", "大脑", 1], ["bridge", "桥", 1], ["brush", "刷子", 1],
+            ["bus", "公共汽车", 1], ["cancer", "癌症", 1], ["candidate", "候选人", 1],
+            ["canteen", "食堂", 1], ["cave", "洞穴", 1], ["ceiling", "天花板", 1],
+            ["cent", "分", 1], ["channel", "频道", 1], ["cheek", "脸颊", 1],
+            ["chest", "胸部", 1], ["cigarette", "香烟", 1], ["claim", "声称", 1],
+            ["clinic", "诊所", 1], ["coach", "教练", 1], ["coffee", "咖啡", 1],
+            ["college", "学院", 1], ["computer", "电脑", 1], ["concert", "音乐会", 1],
+            ["construction", "建设", 1], ["contact", "接触", 1], ["cookie", "饼干", 1],
+            ["couple", "夫妇", 1], ["crawl", "爬行", 1], ["crime", "犯罪", 1],
+            ["data", "数据", 1], ["daughter", "女儿", 1], ["debt", "债务", 1],
+            ["define", "定义", 1], ["diary", "日记", 1], ["disaster", "灾难", 1],
+            ["dish", "盘子", 1], ["drug", "药物", 1], ["dust", "灰尘", 1],
+            ["edit", "编辑", 1], ["elderly", "年长的", 1], ["election", "选举", 1],
+            ["email", "电子邮件", 1], ["emotion", "情感", 1], ["engine", "引擎", 1],
+            ["error", "错误", 1], ["farmer", "农民", 1], ["fashion", "时尚", 1],
+            ["father", "父亲", 1], ["fee", "费用", 1], ["film", "电影", 1],
+            ["fish", "鱼", 1], ["flood", "洪水", 1], ["floor", "地板", 1],
+            ["foggy", "有雾的", 1], ["forest", "森林", 1], ["four", "四", 1],
+            ["fund", "资金", 1], ["furniture", "家具", 1], ["garbage", "垃圾", 1],
+            ["garden", "花园", 1], ["gate", "大门", 1], ["girl", "女孩", 1],
+            ["glove", "手套", 1], ["gold", "金子", 1], ["government", "政府", 1],
+            ["guest", "客人", 1], ["gym", "健身房", 1], ["hill", "小山", 1],
+            ["hire", "雇佣", 1], ["history", "历史", 1], ["hotel", "旅馆", 1],
+            ["hour", "小时", 1], ["humorous", "幽默的", 1], ["ice", "冰", 1],
+            ["income", "收入", 1], ["internet", "互联网", 1], ["island", "岛", 1],
+            ["jacket", "夹克", 1], ["jam", "果酱", 1], ["jeans", "牛仔裤", 1],
+            ["joke", "玩笑", 1], ["juice", "果汁", 1], ["kid", "小孩", 1],
+            ["king", "国王", 1], ["kitchen", "厨房", 1], ["knee", "膝盖", 1],
+            ["knife", "刀", 1], ["lake", "湖", 1], ["lamp", "灯", 1],
+            ["land", "陆地", 1], ["large", "大的", 1], ["law", "法律", 1],
+            ["leaf", "叶子", 1], ["leg", "腿", 1], ["library", "图书馆", 1],
+            ["license", "执照", 1], ["lion", "狮子", 1], ["list", "名单", 1],
+            ["lock", "锁", 1], ["lunch", "午餐", 1], ["mad", "生气的", 1],
+            ["mail", "邮件", 1], ["map", "地图", 1], ["marriage", "婚姻", 1],
+            ["mask", "面具", 1], ["math", "数学", 1], ["meal", "膳食", 1],
+            ["meat", "肉", 1], ["media", "媒体", 1], ["medicine", "药", 1],
+            ["menu", "菜单", 1], ["metal", "金属", 1], ["milk", "牛奶", 1],
+            ["mirror", "镜子", 1], ["mobile", "移动的", 1], ["model", "模型", 1],
+            ["modern", "现代的", 1], ["monkey", "猴子", 1], ["month", "月", 1],
+            ["moon", "月亮", 1], ["morning", "早晨", 1], ["mother", "母亲", 1],
+            ["mouse", "老鼠", 1], ["mouth", "嘴", 1], ["movie", "电影", 1],
+            ["museum", "博物馆", 1], ["music", "音乐", 1], ["name", "名字", 1],
+            ["neck", "脖子", 1], ["news", "新闻", 1], ["newspaper", "报纸", 1],
+            ["night", "夜晚", 1], ["noise", "噪音", 1], ["north", "北", 1],
+            ["notebook", "笔记本", 1], ["nurse", "护士", 1], ["ocean", "海洋", 1],
+            ["oil", "油", 1], ["orange", "橙子", 1], ["page", "页", 1],
+            ["pain", "疼痛", 1], ["painting", "绘画", 1], ["paper", "纸", 1],
+            ["park", "公园", 1], ["pen", "钢笔", 1], ["pencil", "铅笔", 1],
+            ["people", "人", 1], ["person", "人", 1], ["pet", "宠物", 1],
+            ["phone", "电话", 1], ["photo", "照片", 1], ["physics", "物理", 1],
+            ["piano", "钢琴", 1], ["pig", "猪", 1], ["pilot", "飞行员", 1],
+            ["pink", "粉色", 1], ["plane", "飞机", 1], ["plastic", "塑料", 1],
+            ["plate", "盘子", 1], ["player", "运动员", 1], ["poem", "诗", 1],
+            ["police", "警察", 1], ["pool", "池塘", 1], ["post", "邮政", 1],
+            ["potato", "土豆", 1], ["price", "价格", 1], ["prison", "监狱", 1],
+            ["prize", "奖品", 1], ["problem", "问题", 1], ["program", "节目", 1],
+            ["project", "项目", 1], ["pupil", "小学生", 1], ["queen", "女王", 1],
+            ["rabbit", "兔子", 1], ["radio", "收音机", 1], ["rain", "雨", 1],
+            ["reader", "读者", 1], ["red", "红色", 1], ["report", "报告", 1],
+            ["rice", "米饭", 1], ["river", "河", 1], ["robot", "机器人", 1],
+            ["role", "角色", 1], ["roof", "屋顶", 1], ["rose", "玫瑰", 1],
+            ["rule", "规则", 1], ["ruler", "尺子", 1], ["salad", "沙拉", 1],
+            ["salt", "盐", 1], ["sand", "沙子", 1], ["sandwich", "三明治", 1],
+            ["school", "学校", 1], ["score", "分数", 1], ["screen", "屏幕", 1],
+            ["sea", "海", 1], ["season", "季节", 1], ["seat", "座位", 1],
+            ["second", "第二", 1], ["secret", "秘密", 1], ["secretary", "秘书", 1],
+            ["sentence", "句子", 1], ["service", "服务", 1], ["sex", "性别", 1],
+            ["shape", "形状", 1], ["sheep", "羊", 1], ["shirt", "衬衫", 1],
+            ["shoe", "鞋", 1], ["shop", "商店", 1], ["shower", "淋浴", 1],
+            ["side", "边", 1], ["sign", "符号", 1], ["silk", "丝绸", 1],
+            ["silver", "银", 1], ["singer", "歌手", 1], ["sister", "姐妹", 1],
+            ["size", "大小", 1], ["skill", "技能", 1], ["skirt", "裙子", 1],
+            ["sky", "天空", 1], ["sleep", "睡眠", 1], ["smile", "微笑", 1],
+            ["snake", "蛇", 1], ["snow", "雪", 1], ["soap", "肥皂", 1],
+            ["society", "社会", 1], ["sock", "袜子", 1], ["sofa", "沙发", 1],
+            ["soldier", "士兵", 1], ["son", "儿子", 1], ["song", "歌", 1],
+            ["soup", "汤", 1], ["space", "空间", 1], ["speed", "速度", 1],
+            ["spoon", "勺子", 1], ["sport", "运动", 1], ["spring", "春天", 1],
+            ["square", "广场", 1], ["stamp", "邮票", 1], ["star", "星星", 1],
+            ["state", "状态", 1], ["station", "车站", 1], ["stone", "石头", 1],
+            ["store", "商店", 1], ["storm", "暴风雨", 1], ["story", "故事", 1],
+            ["street", "街道", 1], ["student", "学生", 1], ["study", "学习", 1],
+            ["subject", "科目", 1], ["sugar", "糖", 1], ["summer", "夏天", 1],
+            ["sun", "太阳", 1], ["supper", "晚餐", 1], ["sweater", "毛衣", 1],
+            ["swim", "游泳", 1], ["table", "桌子", 1], ["taxi", "出租车", 1],
+            ["tea", "茶", 1], ["teacher", "老师", 1], ["team", "队伍", 1],
+            ["telephone", "电话", 1], ["television", "电视", 1], ["temperature", "温度", 1],
+            ["tennis", "网球", 1], ["test", "测试", 1], ["text", "课文", 1],
+            ["theatre", "剧院", 1], ["ticket", "票", 1], ["tiger", "老虎", 1],
+            ["time", "时间", 1], ["today", "今天", 1], ["toe", "脚趾", 1],
+            ["toilet", "厕所", 1], ["tomato", "西红柿", 1], ["tooth", "牙齿", 1],
+            ["tour", "旅游", 1], ["tourist", "游客", 1], ["towel", "毛巾", 1],
+            ["tower", "塔", 1], ["town", "城镇", 1], ["toy", "玩具", 1],
+            ["traffic", "交通", 1], ["train", "火车", 1], ["tree", "树", 1],
+            ["trip", "旅行", 1], ["truck", "卡车", 1], ["uncle", "叔叔", 1],
+            ["university", "大学", 1], ["vegetable", "蔬菜", 1], ["video", "视频", 1],
+            ["village", "村庄", 1], ["violin", "小提琴", 1], ["visit", "访问", 1],
+            ["voice", "声音", 1], ["wall", "墙", 1], ["war", "战争", 1],
+            ["watch", "手表", 1], ["water", "水", 1], ["way", "路", 1],
+            ["weather", "天气", 1], ["website", "网站", 1], ["wedding", "婚礼", 1],
+            ["week", "星期", 1], ["weekend", "周末", 1], ["weight", "重量", 1],
+            ["west", "西", 1], ["wheel", "轮子", 1], ["wife", "妻子", 1],
+            ["wind", "风", 1], ["window", "窗户", 1], ["wine", "酒", 1],
+            ["wing", "翅膀", 1], ["winter", "冬天", 1], ["woman", "女人", 1],
+            ["wood", "木头", 1], ["word", "单词", 1], ["work", "工作", 1],
+            ["worker", "工人", 1], ["world", "世界", 1], ["writer", "作家", 1],
+            ["year", "年", 1], ["zoo", "动物园", 1]
+        ];
+
+        // ================= 核心逻辑 =================
+        function log(msg, color="white") {
+            const box = document.getElementById('log');
+            const time = new Date().toTimeString().split(' ')[0];
+            box.innerHTML += `<div style="color:${color}">[${time}] ${msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function startBatchUpload() {
+            const btn = document.getElementById('btn');
+            const pBar = document.getElementById('p-bar');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            btn.innerText = "正在导入 Part 2 ...";
+            
+            log("🚀 开始 Part 2 补全任务，共 " + RAW_DATA.length + " 个单词");
+            
+            const BATCH_SIZE = 50; 
+            let total = RAW_DATA.length;
+            let count = 0;
+
+            for(let i=0; i<total; i+=BATCH_SIZE) {
+                const chunk = RAW_DATA.slice(i, i+BATCH_SIZE);
+                
+                const requests = chunk.map(item => ({
+                    "method": "POST",
+                    "path": "/1/classes/Words",
+                    "body": {
+                        "f": item[0],
+                        "b": item[1],
+                        "rank": item[2]
+                    }
+                }));
+
+                try {
+                    const res = await fetch(`https://api.bmobcloud.com/1/batch`, {
+                        method: "POST",
+                        headers: {
+                            "X-Bmob-Application-Id": BMOB_APP_ID,
+                            "X-Bmob-REST-API-Key": BMOB_API_KEY,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ requests: requests })
+                    });
+
+                    if(res.ok) {
+                        count += chunk.length;
+                        let pct = Math.floor((count/total)*100);
+                        pBar.style.width = pct + "%";
+                        status.innerText = `已补全: ${count} / ${total}`;
+                        log(`✅ 批次 ${Math.ceil((i+1)/50)} 成功 (${chunk.length}个)`);
+                    } else {
+                        log(`❌ 批次失败: ` + await res.text(), "red");
+                    }
+                } catch(e) {
+                    log(`❌ 网络错误: ${e.message}`, "red");
+                }
+
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            btn.innerText = "全部完成";
+            status.innerText = "🎉 词库已完整！";
+            log("🎉 Part 2 上传完毕！现在你的词库是完整的了。", "#00ff00");
+        }
+    </script>
+</body>
+</html>
