@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>高考核心词汇</title>
+    <title>高考听力核心</title>
     <style>
         :root { 
             --bg-color: #fcfcfc; --card-bg: #ffffff;
@@ -52,12 +52,12 @@
         /* 2. 书架层 */
         #dashboard-layer {
             display: none; flex-direction: column; height: 100%; 
-            padding: 20px; justify-content: center; 
+            padding: 20px; justify-content: flex-start; padding-top: 60px;
         }
         .deck-card {
             background: var(--card-bg); border-radius: 4px; padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.03); cursor: pointer; border: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.02); cursor: pointer; border: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;
         }
         .deck-title { font-size: 20px; font-weight: 500; }
         .deck-stats { display: flex; gap: 20px; font-size: 12px; color: #666; }
@@ -83,17 +83,20 @@
             display: flex; align-items: center; justify-content: center; margin-bottom: 30px; 
             cursor: pointer;
         }
+        .speaker-box.active { background: #fafafa; border-color: #000; }
         .speaker-box svg { width: 28px; height: 28px; fill: #222; }
 
         .word-en { font-size: 42px; font-weight: 300; color: #000; margin-bottom: 20px; }
         .word-cn { font-size: 18px; color: #666; font-weight: 300; line-height: 1.6; }
         .hint { color: #eee; font-size: 11px; margin-top: 25px; text-transform: uppercase; letter-spacing: 2px; }
 
+        /* 底部按钮 (默认显示，翻面后隐藏) */
         .actions { 
             height: 100px; background: #fff; display: flex; align-items: center; justify-content: center; gap: 10px; 
             border-top: 1px solid #f9f9f9; padding: 0 20px;
+            transition: opacity 0.2s, visibility 0.2s; opacity: 1; visibility: visible;
         }
-        .actions.hidden { opacity: 0; pointer-events: none; }
+        .actions.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
         .btn-opt { 
             flex: 1; height: 54px; border-radius: 4px; border: none; 
@@ -119,7 +122,7 @@
     <div id="dashboard-layer">
         <div class="deck-card" onclick="app.startSession()">
             <div class="deck-title">高考核心词汇</div>
-            <div style="font-size:13px; color:#999; margin-bottom:15px;">无限模式 · 有多少学多少</div>
+            <div style="font-size:13px; color:#999; margin-bottom:15px;">听音辨义 · 无限模式</div>
             
             <div class="deck-stats">
                 <div>
@@ -149,22 +152,22 @@
         </div>
 
         <div class="stage">
-            <div class="flashcard" id="card" onclick="app.flip()">
+            <div class="flashcard" id="card" onclick="app.handleCardClick()">
                 <div class="face front">
-                    <div class="speaker-box" onclick="app.playAudio(event)">
+                    <div class="speaker-box active" onclick="app.manualPlay(event)">
                         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
                     </div>
-                    <div class="hint">点击听音</div>
+                    <div class="hint">正在播放...</div>
                 </div>
                 <div class="face back">
                     <div class="word-en" id="txt-word">...</div>
                     <div class="word-cn" id="txt-mean">...</div>
-                    <div class="hint" style="color:#ddd; margin-top:40px;">请评分</div>
+                    <div class="hint" style="color:#ddd; margin-top:40px;">点击卡片 下一个</div>
                 </div>
             </div>
         </div>
 
-        <div class="actions hidden" id="ctrl-bar">
+        <div class="actions" id="ctrl-bar">
             <button class="btn-opt btn-fail" onclick="app.grade(1)">忘记<span>1分钟后</span></button>
             <button class="btn-opt" onclick="app.grade(2)">模糊<span>1天后</span></button>
             <button class="btn-opt" onclick="app.grade(3)">认识<span>3天后</span></button>
@@ -175,7 +178,6 @@
     <script>
         const BMOB_APP_ID  = "245c234dd2d5ab723c1f00eaca1474cf";
         const BMOB_API_KEY = "999401489c1ab0d956f5f8db34e97afb";
-        // 🚨 移除了 DAILY_NEW_LIMIT，现在是无限模式
 
         const app = {
             user: null,
@@ -211,8 +213,6 @@
                     this.user = uRes.results[0];
                     this.memoryDB = this.user.memoryDB || {}; 
 
-                    // 下载所有单词
-                    // 为了演示流畅，这里设定下载前2000个 (根据你的数据量调整)
                     const wRes = await this.request('Words?order=-rank&limit=2000');
                     this.allWords = this.autoFixData(wRes.results);
 
@@ -231,19 +231,12 @@
             refreshDashboard() {
                 const now = Date.now();
                 let dueCount = 0;
-                let learnedCount = 0;
+                let learnedCount = Object.keys(this.memoryDB).length;
 
-                const learnedIds = Object.keys(this.memoryDB);
-                learnedCount = learnedIds.length;
-
-                // 统计到期复习
                 for (let id in this.memoryDB) {
-                    if (this.memoryDB[id].nextReview <= now) {
-                        dueCount++;
-                    }
+                    if (this.memoryDB[id].nextReview <= now) dueCount++;
                 }
 
-                // 🔥 统计剩余所有新词 (不再受限制)
                 const newCount = this.allWords.length - learnedCount;
 
                 document.getElementById('count-due').textContent = dueCount;
@@ -255,20 +248,17 @@
                 const now = Date.now();
                 this.sessionQueue = [];
 
-                // 1. 复习词 (优先)
                 const dueWords = this.allWords.filter(w => {
                     const record = this.memoryDB[w.objectId];
                     return record && record.nextReview <= now;
                 });
 
-                // 2. 新词 (所有未学过的，不再限制数量)
                 const learnedIds = Object.keys(this.memoryDB);
                 const newWords = this.allWords.filter(w => !learnedIds.includes(w.objectId));
 
-                // 3. 合并队列
                 this.sessionQueue = [...dueWords, ...newWords];
 
-                if (this.sessionQueue.length === 0) return alert("太棒了！所有单词都学完了！🎉");
+                if (this.sessionQueue.length === 0) return alert("所有单词已完成！🎉");
 
                 document.getElementById('dashboard-layer').style.display = 'none';
                 document.getElementById('app-layer').style.display = 'flex';
@@ -281,31 +271,40 @@
                     return this.backToDash();
                 }
 
-                // 实时更新剩余数量
                 const newCount = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length;
                 document.getElementById('sess-new').textContent = newCount;
                 document.getElementById('sess-due').textContent = this.sessionQueue.length - newCount;
 
                 this.currentCard = this.sessionQueue[0];
                 
+                // 填充背面内容
                 document.getElementById('txt-word').textContent = this.currentCard.f;
                 document.getElementById('txt-mean').textContent = this.currentCard.b || "";
                 
+                // 重置为正面状态
                 this.isFlipped = false;
                 document.getElementById('card').classList.remove('flipped');
-                document.getElementById('ctrl-bar').classList.add('hidden');
+                // 🔥 关键修正：正面时显示选项
+                document.getElementById('ctrl-bar').classList.remove('hidden');
 
+                // 自动播放
                 setTimeout(() => this.playAudio(this.currentCard.f), 500);
             },
 
-            flip() {
-                if (this.isFlipped) return;
-                this.isFlipped = true;
-                document.getElementById('card').classList.add('flipped');
-                document.getElementById('ctrl-bar').classList.remove('hidden');
+            // 点击卡片逻辑
+            handleCardClick() {
+                // 如果是背面，点击则进入下一个
+                if (this.isFlipped) {
+                    this.renderNext();
+                } else {
+                    // 如果是正面，点击重播声音
+                    this.playAudio(this.currentCard.f);
+                }
             },
 
             grade(level) {
+                if (this.isFlipped) return; // 防止重复点击
+
                 const wordId = this.currentCard.objectId;
                 const now = Date.now();
                 let record = this.memoryDB[wordId] || { interval: 0, nextReview: 0 };
@@ -313,7 +312,6 @@
                 if (level === 1) { // 忘记
                     record.interval = 0;
                     record.nextReview = now + 60 * 1000; 
-                    // 忘记的词，扔回队列末尾，稍后重来
                     this.sessionQueue.push(this.currentCard);
                 } else {
                     let bonus = 1;
@@ -327,9 +325,13 @@
                 }
 
                 this.memoryDB[wordId] = record;
-                this.sessionQueue.shift(); // 移除当前词
+                this.sessionQueue.shift(); 
                 this.syncToCloud();
-                this.renderNext();
+
+                // 🔥 关键修正：不直接 renderNext，而是翻转到背面看答案
+                this.isFlipped = true;
+                document.getElementById('card').classList.add('flipped');
+                document.getElementById('ctrl-bar').classList.add('hidden'); // 隐藏选项
             },
 
             syncToCloud() {
