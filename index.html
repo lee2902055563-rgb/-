@@ -3,112 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>高考听力核心</title>
+    <title>高考核心词汇</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { 
-            --bg-color: #fcfcfc; --card-bg: #ffffff;
-            --text-main: #111111; --text-sub: #999999;
-            --border: #f0f0f0;
-            --green: #27ae60; --blue: #2980b9; --red: #c0392b;
+            --bg-color: #fcfcfc; --card-bg: #ffffff; --text-main: #111111; 
+            --text-sub: #999999; --border: #f0f0f0; 
+            --c-red: #ff6b6b; --c-blue: #339af0; --c-green: #51cf66; --c-orange: #fcc419;
         }
-
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; 
-            background: var(--bg-color); color: var(--text-main);
-            margin: 0; height: 100vh; display: flex; flex-direction: column; 
-            overflow: hidden; -webkit-tap-highlight-color: transparent;
-            padding-top: env(safe-area-inset-top);
-        }
-
+        body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top); }
         button { outline: none; -webkit-tap-highlight-color: transparent; }
+        .btn-icon { background: none; border: none; font-size: 20px; cursor: pointer; padding: 10px; color: #333; }
 
-        /* 状态栏 */
-        .status-bar {
-            padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
-            font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border);
-            background: #fff;
-        }
-        .stat-item { display: flex; align-items: center; gap: 6px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; }
-        .dot.new { background: var(--blue); }
-        .dot.due { background: var(--red); }
+        /* UI Components */
+        #auth-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .input-box { background: transparent; border: none; border-bottom: 1px solid #ddd; padding: 10px; font-size: 18px; text-align: center; width: 180px; outline: none; margin-bottom: 40px; font-weight: 300; }
+        .btn-start { background: #000; color: #fff; border: none; padding: 12px 36px; border-radius: 50px; font-size: 14px; cursor: pointer; letter-spacing: 2px; }
 
-        /* 1. 登录层 */
-        #auth-layer { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: var(--bg-color); z-index: 200; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        .input-box { 
-            background: transparent; border: none; border-bottom: 1px solid #ddd; 
-            padding: 10px; font-size: 18px; text-align: center; width: 180px; 
-            border-radius: 0; outline: none; margin-bottom: 40px; font-weight: 300;
-        }
-        .btn-start { 
-            background: #000; color: #fff; border: none; padding: 12px 36px; 
-            border-radius: 50px; font-size: 14px; cursor: pointer; letter-spacing: 2px;
-        }
-
-        /* 2. 书架层 */
-        #dashboard-layer {
-            display: none; flex-direction: column; height: 100%; 
-            padding: 20px; justify-content: flex-start; padding-top: 60px;
-        }
-        .deck-card {
-            background: var(--card-bg); border-radius: 4px; padding: 30px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.02); cursor: pointer; border: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;
-        }
-        .deck-title { font-size: 20px; font-weight: 500; }
-        .deck-stats { display: flex; gap: 20px; font-size: 12px; color: #666; }
-        .stat-num { font-weight: bold; font-size: 16px; display: block; margin-bottom: 4px; }
+        #dashboard-layer { display: none; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; }
+        .dash-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-top: 10px; }
         
-        /* 3. 学习层 */
+        .deck-card { 
+            background: var(--card-bg); border-radius: 8px; padding: 50px 30px; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.03); cursor: pointer; border: 1px solid var(--border); 
+            display: flex; flex-direction: column; gap: 40px; transition: transform 0.2s; 
+        }
+        .deck-card:active { transform: scale(0.98); }
+        
+        .deck-title { font-size: 24px; font-weight: 600; color: #000; letter-spacing: 1px; }
+
+        .stats-row { display: flex; gap: 20px; justify-content: space-around; } 
+        .stat-item-dash { display: flex; flex-direction: column; align-items: center; }
+        .stat-num { font-size: 32px; font-weight: 700; margin-bottom: 5px; } 
+        .stat-label { font-size: 12px; color: #bbb; text-transform: uppercase; letter-spacing: 1px; }
+
+        #stats-layer { display: none; flex-direction: column; height: 100%; background: #fcfcfc; overflow-y: auto; padding: 20px; box-sizing: border-box; z-index: 150; }
+        .stats-header { display: flex; align-items: center; margin-bottom: 30px; padding-top: 10px; }
+        .section-title { font-size: 14px; font-weight: 600; color: #000; margin: 30px 0 15px; border-left: 3px solid #000; padding-left: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .data-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #f0f0f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        .dc-num { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
+        .dc-label { font-size: 12px; color: #999; }
+        .chart-controls { display: flex; gap: 10px; }
+        .chart-btn { border: 1px solid #eee; background: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; color: #666; transition: 0.2s; }
+        .chart-btn.active { background: #000; color: #fff; border-color: #000; }
+        .chart-container { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #f0f0f0; height: 260px; position: relative; }
+
         #app-layer { display: none; flex-direction: column; height: 100%; background: #fff; }
-        
+        .status-bar { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border); }
         .stage { flex: 1; display: flex; justify-content: center; align-items: center; perspective: 1000px; }
-        
-        .flashcard { 
-            width: 85%; height: 65%; background: white; border-radius: 4px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.04); position: relative; 
-            transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); 
-            border: 1px solid #f5f5f5;
-        }
+        .flashcard { width: 85%; height: 65%; background: white; border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,0.04); position: relative; transform-style: preserve-3d; transition: transform 0.6s; border: 1px solid #f5f5f5; }
         .flashcard.flipped { transform: rotateY(180deg); }
-        .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; box-sizing: border-box; text-align: center; }
+        .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; text-align: center; }
         .back { transform: rotateY(180deg); background: #fff; }
-
-        .speaker-box { 
-            width: 80px; height: 80px; border: 1px solid #f0f0f0; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; margin-bottom: 30px; 
-            cursor: pointer;
-        }
-        .speaker-box.active { background: #fafafa; border-color: #000; }
-        .speaker-box svg { width: 28px; height: 28px; fill: #222; }
-
-        .word-en { font-size: 42px; font-weight: 300; color: #000; margin-bottom: 20px; }
+        .speaker-box { width: 80px; height: 80px; border: 1px solid #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px; cursor: pointer; }
+        .word-en { font-size: 42px; font-weight: 300; margin-bottom: 20px; }
         .word-cn { font-size: 18px; color: #666; font-weight: 300; line-height: 1.6; }
-        .hint { color: #eee; font-size: 11px; margin-top: 25px; text-transform: uppercase; letter-spacing: 2px; }
-
-        /* 底部按钮 (默认显示，翻面后隐藏) */
-        .actions { 
-            height: 100px; background: #fff; display: flex; align-items: center; justify-content: center; gap: 10px; 
-            border-top: 1px solid #f9f9f9; padding: 0 20px;
-            transition: opacity 0.2s, visibility 0.2s; opacity: 1; visibility: visible;
-        }
+        .actions { height: 100px; background: #fff; display: flex; align-items: center; justify-content: center; gap: 15px; border-top: 1px solid #f9f9f9; padding: 0 20px; transition: opacity 0.2s; }
         .actions.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-        .btn-opt { 
-            flex: 1; height: 54px; border-radius: 4px; border: none; 
-            font-size: 12px; font-weight: 500; cursor: pointer; color: #333; background: #f7f7f7; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-        .btn-opt span { font-size: 10px; color: #999; margin-top: 2px; font-weight: normal; }
-        
-        .btn-fail { background: #fff5f5; color: #c0392b; }
-        .btn-pass { background: #f0f9f4; color: #27ae60; }
-        
+        .btn-opt { flex: 1; max-width: 80px; height: 50px; border-radius: 4px; border: none; font-size: 12px; cursor: pointer; color: #333; background: #f7f7f7; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: transform 0.1s; }
+        .btn-opt:active { transform: translateY(2px); }
+        .btn-opt span { font-size: 9px; color: #aaa; margin-top: 3px; }
         #error-msg { color: #e74c3c; font-size: 12px; margin-top: 20px; }
+
+        .txt-red { color: var(--c-red); } .txt-green { color: var(--c-green); } .txt-blue { color: var(--c-blue); } .txt-orange { color: var(--c-orange); }
+        .g-1 { background: #fff5f5; color: var(--c-red); }
+        .g-2 { background: #fffcf5; color: var(--c-orange); }
+        .g-3 { background: #f5faff; color: var(--c-blue); }
+        .g-4 { background: #f5fbf8; color: var(--c-green); }
     </style>
 </head>
 <body>
@@ -120,58 +82,69 @@
     </div>
 
     <div id="dashboard-layer">
+        <div class="dash-header">
+            <button class="btn-icon" onclick="app.openStats()">📊</button>
+        </div>
+
         <div class="deck-card" onclick="app.startSession()">
-            <div class="deck-title">高考核心词汇</div>
-            <div style="font-size:13px; color:#999; margin-bottom:15px;">听音辨义 · 无限模式</div>
+            <div>
+                <div class="deck-title">高考核心词汇</div>
+            </div>
             
-            <div class="deck-stats">
-                <div>
-                    <span class="stat-num" style="color:var(--red)" id="count-due">0</span>
-                    待复习
+            <div class="stats-row">
+                <div class="stat-item-dash">
+                    <span class="stat-num txt-red" id="count-due">0</span>
+                    <span class="stat-label">需复习</span>
                 </div>
-                <div>
-                    <span class="stat-num" style="color:var(--blue)" id="count-new">0</span>
-                    待学新词
-                </div>
-                <div>
-                    <span class="stat-num" style="color:var(--green)" id="count-done">0</span>
-                    已掌握
+                <div class="stat-item-dash">
+                    <span class="stat-num txt-blue" id="count-new">0</span>
+                    <span class="stat-label">待新学</span>
                 </div>
             </div>
-            <div style="margin-top:20px; text-align:right; color:#ddd; font-size:20px;">→</div>
+            <div style="text-align:right; color:#ddd;">GO →</div>
         </div>
+    </div>
+
+    <div id="stats-layer">
+        <div class="stats-header">
+            <button class="btn-icon" onclick="app.closeStats()" style="padding-left:0; font-size:24px;">←</button>
+            <div style="font-size:18px; font-weight:600; margin-left:10px;">学习数据</div>
+        </div>
+        <div class="section-title">今日概况 (Today)</div>
+        <div class="data-grid">
+            <div class="data-card"><div class="dc-num txt-blue" id="st-today-new">0</div><div class="dc-label">新学单词</div></div>
+            <div class="data-card"><div class="dc-num txt-red" id="st-today-rev">0</div><div class="dc-label">复习单词</div></div>
+            <div class="data-card" style="grid-column: span 2;"><div class="dc-num" style="color:#333" id="st-today-time">0m</div><div class="dc-label">今日学习时长</div></div>
+        </div>
+        
+        <div class="section-title">记忆库分布 (State)</div>
+        <div class="data-grid">
+            <div class="data-card"><div class="dc-num txt-green" id="st-total-mature">0</div><div class="dc-label">成熟单词 (>21天)</div></div>
+            <div class="data-card"><div class="dc-num txt-orange" id="st-total-young">0</div><div class="dc-label">学习中 (<21天)</div></div>
+            <div class="data-card" style="grid-column: span 2;"><div class="dc-num" style="color:#333" id="st-total-time">0m</div><div class="dc-label">累计投入时间</div></div>
+        </div>
+
+        <div class="section-title"><span id="chart-title">学习趋势</span><div class="chart-controls"><button class="chart-btn active" onclick="app.switchChart('week', this)">本周</button><button class="chart-btn" onclick="app.switchChart('month', this)">本月</button><button class="chart-btn" onclick="app.switchChart('year', this)">年度</button></div></div>
+        <div class="chart-container"><canvas id="timeChart"></canvas></div>
+        <div style="height: 50px;"></div>
     </div>
 
     <div id="app-layer">
         <div class="status-bar">
-            <div class="stat-item" onclick="app.backToDash()">← 暂停</div>
-            <div class="stat-item">
-                <div class="dot new"></div> <span id="sess-new">0</span>
-                <div class="dot due" style="margin-left:10px;"></div> <span id="sess-due">0</span>
-            </div>
+            <div onclick="app.backToDash()" style="cursor:pointer;">← 暂停</div>
+            <div><span style="color:#3498db; font-size:12px;">●</span> <span id="sess-new">0</span><span style="color:#e74c3c; font-size:12px; margin-left:5px;">●</span> <span id="sess-due">0</span></div>
         </div>
-
         <div class="stage">
             <div class="flashcard" id="card" onclick="app.handleCardClick()">
-                <div class="face front">
-                    <div class="speaker-box active" onclick="app.manualPlay(event)">
-                        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                    </div>
-                    <div class="hint">正在播放...</div>
-                </div>
-                <div class="face back">
-                    <div class="word-en" id="txt-word">...</div>
-                    <div class="word-cn" id="txt-mean">...</div>
-                    <div class="hint" style="color:#ddd; margin-top:40px;">点击卡片 下一个</div>
-                </div>
+                <div class="face front"><div class="speaker-box" onclick="app.manualPlay(event)"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></div><div class="hint">点击听音</div></div>
+                <div class="face back"><div class="word-en" id="txt-word">...</div><div class="word-cn" id="txt-mean">...</div><div class="hint" style="margin-top:40px; color:#ddd;">点击继续</div></div>
             </div>
         </div>
-
         <div class="actions" id="ctrl-bar">
-            <button class="btn-opt btn-fail" onclick="app.grade(1)">忘记<span>1分钟后</span></button>
-            <button class="btn-opt" onclick="app.grade(2)">模糊<span>1天后</span></button>
-            <button class="btn-opt" onclick="app.grade(3)">认识<span>3天后</span></button>
-            <button class="btn-opt btn-pass" onclick="app.grade(4)">掌握<span>7天后</span></button>
+            <button class="btn-opt g-1" onclick="app.grade(1)">忘记<span id="int-1">1m</span></button>
+            <button class="btn-opt g-2" onclick="app.grade(2)">模糊<span id="int-2">Hard</span></button>
+            <button class="btn-opt g-3" onclick="app.grade(3)">认识<span id="int-3">Good</span></button>
+            <button class="btn-opt g-4" onclick="app.grade(4)">掌握<span id="int-4">Easy</span></button>
         </div>
     </div>
 
@@ -179,196 +152,345 @@
         const BMOB_APP_ID  = "245c234dd2d5ab723c1f00eaca1474cf";
         const BMOB_API_KEY = "999401489c1ab0d956f5f8db34e97afb";
 
+        // FSRS v4.5 Core
+        const FSRS = {
+            p: [0.40255, 1.18385, 3.173, 15.69105, 7.19605, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.41, 0.6631, 2.33715, 0.2315, 2.9898, 0.51655, 0.6621],
+            requestRetention: 0.9, maxInterval: 36500,
+            nextInterval(s) { return Math.min(Math.max(1, Math.round(s * 9 * (1/this.requestRetention - 1))), this.maxInterval); },
+            init(rating) { const s = this.p[rating - 1]; let d = this.p[4] - (rating - 3) * this.p[5]; return { s, d: Math.min(Math.max(1, d), 10) }; },
+            next(d, s, r, rating) {
+                let nextD = Math.min(Math.max(1, (d - this.p[6] * (rating - 3)) * (1 - this.p[7]) + this.p[7] * this.p[4]), 10);
+                let nextS = s;
+                if (rating === 1) nextS = this.p[11] * Math.pow(nextD, -this.p[12]) * (Math.pow(s + 1, this.p[13]) - 1) * Math.exp(this.p[14] * (1 - r));
+                else {
+                    let hardPenalty = rating === 2 ? this.p[15] : 1; let easyBonus = rating === 4 ? this.p[16] : 1;
+                    nextS = s * (1 + Math.exp(this.p[8]) * (11 - nextD) * Math.pow(s, -this.p[9]) * (Math.exp(this.p[10] * (1 - r)) - 1) * hardPenalty * easyBonus);
+                }
+                return { s: Number(nextS.toFixed(4)), d: Number(nextD.toFixed(4)) };
+            },
+            getRetrievability(s, days) { return Math.pow(1 + days / (9 * s), -1); }
+        };
+
         const app = {
-            user: null,
-            allWords: [],
-            memoryDB: {},
-            sessionQueue: [],
-            currentCard: null,
-            isFlipped: false,
+            user: null, allWords: [], memoryDB: {}, sessionQueue: [], currentCard: null, isFlipped: false,
+            sessionStartTime: 0, chartInstance: null, currentChartMode: 'week',
+            // 🔥 无限模式
+            maxNewCards: 99999, 
+
+            // 🔥 自动登录初始化
+            async init() {
+                const savedCode = localStorage.getItem('anki_code');
+                if(savedCode) {
+                    document.getElementById('code-input').value = savedCode;
+                    this.login();
+                }
+            },
 
             async request(path, method='GET', body=null) {
-                const url = `https://api.bmobcloud.com/1/classes/${path}`;
-                const headers = {
-                    "X-Bmob-Application-Id": BMOB_APP_ID,
-                    "X-Bmob-REST-API-Key": BMOB_API_KEY,
-                    "Content-Type": "application/json"
-                };
-                const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
-                if (!res.ok) throw new Error("网络错误");
+                const res = await fetch(`https://api.bmobcloud.com/1/classes/${path}`, {
+                    method, headers: { "X-Bmob-Application-Id": BMOB_APP_ID, "X-Bmob-REST-API-Key": BMOB_API_KEY, "Content-Type": "application/json" },
+                    body: body ? JSON.stringify(body) : null
+                });
                 return await res.json();
             },
 
             async login() {
                 const code = document.getElementById('code-input').value.trim();
                 const btn = document.getElementById('login-btn');
-                
                 if(!code) return alert("请输入激活码");
-                btn.textContent = "同步数据...";
-                btn.disabled = true;
-
+                btn.textContent = "加载中..."; btn.disabled = true;
                 try {
                     const uRes = await this.request(`ActivationCodes?where=${encodeURIComponent(JSON.stringify({code}))}`);
-                    if(!uRes.results.length) throw new Error("激活码无效");
+                    if(!uRes.results || uRes.results.length === 0) throw new Error("激活码无效");
+                    
                     this.user = uRes.results[0];
-                    this.memoryDB = this.user.memoryDB || {}; 
+                    localStorage.setItem('anki_code', code); // 记住登录
 
-                    const wRes = await this.request('Words?order=-rank&limit=2000');
-                    this.allWords = this.autoFixData(wRes.results);
+                    this.memoryDB = this.user.memoryDB || {}; 
+                    if(!this.user.studyStats) this.user.studyStats = { totalTime: 0, totalRev: 0, todayNew: 0, todayRev: 0, lastDate: "", history: {} };
+                    
+                    try {
+                        const wRes = await this.request('Words?order=-rank&limit=2000');
+                        this.allWords = this.autoFixData(wRes.results || []);
+                    } catch(e) { console.warn("Words加载失败", e); this.allWords = []; }
 
                     this.refreshDashboard();
-                    
                     document.getElementById('auth-layer').style.display = 'none';
                     document.getElementById('dashboard-layer').style.display = 'flex';
-
-                } catch(e) {
-                    document.getElementById('error-msg').textContent = e.message;
-                    btn.textContent = "进入";
-                    btn.disabled = false;
+                } catch(e) { 
+                    document.getElementById('error-msg').textContent = e.message; 
+                    btn.textContent = "进入"; btn.disabled = false; 
+                    localStorage.removeItem('anki_code'); 
                 }
             },
 
             refreshDashboard() {
                 const now = Date.now();
-                let dueCount = 0;
-                let learnedCount = Object.keys(this.memoryDB).length;
-
-                for (let id in this.memoryDB) {
-                    if (this.memoryDB[id].nextReview <= now) dueCount++;
+                let dueCount = 0, matureCount = 0, learnCount = 0;
+                const d = new Date();
+                const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                if(this.user.studyStats.lastDate !== todayKey) {
+                    this.user.studyStats.todayNew = 0; this.user.studyStats.todayRev = 0; this.user.studyStats.lastDate = todayKey;
                 }
-
-                const newCount = this.allWords.length - learnedCount;
-
+                for (let id in this.memoryDB) {
+                    const rec = this.memoryDB[id];
+                    if (rec.interval && rec.interval > 21) matureCount++;
+                    else if (rec.interval && rec.interval > 0) learnCount++;
+                    if (rec.nextReview <= now) dueCount++;
+                }
+                const remainingNew = Math.max(0, this.allWords.length - Object.keys(this.memoryDB).length);
+                
                 document.getElementById('count-due').textContent = dueCount;
-                document.getElementById('count-new').textContent = newCount > 0 ? newCount : 0;
-                document.getElementById('count-done').textContent = learnedCount;
+                document.getElementById('count-new').textContent = remainingNew;
+                const elMature = document.getElementById('st-total-mature'); if(elMature) elMature.textContent = matureCount;
+                const elYoung = document.getElementById('st-total-young'); if(elYoung) elYoung.textContent = learnCount;
             },
 
             startSession() {
+                this.refreshDashboard();
+                if(this.allWords.length === 0) return alert("词库为空");
                 const now = Date.now();
                 this.sessionQueue = [];
-
-                const dueWords = this.allWords.filter(w => {
-                    const record = this.memoryDB[w.objectId];
-                    return record && record.nextReview <= now;
-                });
-
+                // 1. Due
+                const dueWords = this.allWords.filter(w => { const r = this.memoryDB[w.objectId]; return r && r.nextReview <= now; });
+                // 2. New (Unlimited)
                 const learnedIds = Object.keys(this.memoryDB);
                 const newWords = this.allWords.filter(w => !learnedIds.includes(w.objectId));
-
+                
                 this.sessionQueue = [...dueWords, ...newWords];
-
-                if (this.sessionQueue.length === 0) return alert("所有单词已完成！🎉");
-
+                if (this.sessionQueue.length === 0) return alert("今日任务已完成！🎉");
+                this.sessionStartTime = Date.now();
                 document.getElementById('dashboard-layer').style.display = 'none';
                 document.getElementById('app-layer').style.display = 'flex';
                 this.renderNext();
             },
 
             renderNext() {
-                if (this.sessionQueue.length === 0) {
-                    alert("本次任务完成！");
-                    return this.backToDash();
-                }
-
-                const newCount = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length;
-                document.getElementById('sess-new').textContent = newCount;
-                document.getElementById('sess-due').textContent = this.sessionQueue.length - newCount;
-
+                if (this.sessionQueue.length === 0) { alert("学习完成"); return this.backToDash(); }
+                const qNew = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length;
+                const qDue = this.sessionQueue.length - qNew;
+                document.getElementById('sess-new').textContent = qNew;
+                document.getElementById('sess-due').textContent = qDue;
                 this.currentCard = this.sessionQueue[0];
-                
-                // 填充背面内容
                 document.getElementById('txt-word').textContent = this.currentCard.f;
                 document.getElementById('txt-mean').textContent = this.currentCard.b || "";
-                
-                // 重置为正面状态
+                this.updateButtonLabels(this.currentCard.objectId);
                 this.isFlipped = false;
                 document.getElementById('card').classList.remove('flipped');
-                // 🔥 关键修正：正面时显示选项
-                document.getElementById('ctrl-bar').classList.remove('hidden');
-
-                // 自动播放
+                document.getElementById('ctrl-bar').classList.remove('hidden'); 
                 setTimeout(() => this.playAudio(this.currentCard.f), 500);
             },
 
-            // 点击卡片逻辑
-            handleCardClick() {
-                // 如果是背面，点击则进入下一个
-                if (this.isFlipped) {
-                    this.renderNext();
+            // ============================================
+            // 🔥 核心修正：学习阶段 (Learning Steps) 逻辑
+            // ============================================
+            getStepIntervals(record) {
+                // 如果没有记录(新卡) 或者 间隔 < 1天 (学习中)，返回分钟级选项
+                // New/Learn: 1m, 5m, 10m, 1d (Graduate)
+                return {
+                    1: 1/1440, // 1 min (Again)
+                    2: 5/1440, // 5 min (Hard)
+                    3: 10/1440, // 10 min (Good)
+                    4: 1        // 1 day (Easy/Graduate)
+                };
+            },
+
+            updateButtonLabels(wordId) {
+                const now = Date.now();
+                let record = this.memoryDB[wordId];
+                let s = 0, d = 5, lastReview = now;
+                if (record) {
+                    if (record.s !== undefined) { s = record.s; d = record.d; lastReview = record.lastReview; }
+                    else if (record.interval) { s = record.interval; d = 5; lastReview = now - (record.interval * 86400000); }
+                }
+                
+                const isReview = (s > 0 && record && record.interval >= 1); // 只有间隔>=1才算复习模式
+                
+                const fmt = (days) => {
+                    if (days * 1440 < 60) return Math.round(days*1440) + "m"; // < 1 hour -> mins
+                    if (days < 1) return (days*24).toFixed(1) + "h"; // < 1 day -> hours
+                    return days >= 365 ? (days/365).toFixed(1)+"y" : (days >= 30 ? (days/30).toFixed(1)+"mo" : Math.round(days)+"d");
+                };
+
+                if (!isReview) {
+                    // 学习阶段显示固定步进
+                    const steps = this.getStepIntervals(record);
+                    document.getElementById('int-1').innerText = fmt(steps[1]);
+                    document.getElementById('int-2').innerText = fmt(steps[2]);
+                    document.getElementById('int-3').innerText = fmt(steps[3]);
+                    document.getElementById('int-4').innerText = fmt(steps[4]);
                 } else {
-                    // 如果是正面，点击重播声音
-                    this.playAudio(this.currentCard.f);
+                    // FSRS 复习阶段
+                    const daysElapsed = Math.max(0, (now - lastReview) / 86400000);
+                    const r = FSRS.getRetrievability(s, daysElapsed);
+                    
+                    const getIv = (r) => { 
+                        if(r===1) return 0; // Again -> 0 (relearn)
+                        const res = FSRS.next(d, s, r, r);
+                        return FSRS.nextInterval(res.s);
+                    };
+
+                    document.getElementById('int-1').innerText = "1m"; // Again 总是重来
+                    document.getElementById('int-2').innerText = fmt(getIv(2));
+                    document.getElementById('int-3').innerText = fmt(getIv(3));
+                    document.getElementById('int-4').innerText = fmt(getIv(4));
                 }
             },
 
-            grade(level) {
-                if (this.isFlipped) return; // 防止重复点击
-
+            grade(rating) {
+                if (this.isFlipped) return;
                 const wordId = this.currentCard.objectId;
                 const now = Date.now();
-                let record = this.memoryDB[wordId] || { interval: 0, nextReview: 0 };
-
-                if (level === 1) { // 忘记
-                    record.interval = 0;
-                    record.nextReview = now + 60 * 1000; 
-                    this.sessionQueue.push(this.currentCard);
-                } else {
-                    let bonus = 1;
-                    if (level === 2) bonus = 1.2;
-                    if (level === 3) bonus = 2.5;
-                    if (level === 4) bonus = 3.5;
-
-                    let newInterval = (record.interval === 0 ? 1 : record.interval) * bonus;
-                    record.interval = Math.round(newInterval);
-                    record.nextReview = now + (record.interval * 24 * 60 * 60 * 1000);
+                let record = this.memoryDB[wordId];
+                let s = 0, d = 5, lastReview = now;
+                
+                if (record) {
+                    if (record.s !== undefined) { s = record.s; d = record.d; lastReview = record.lastReview || now; } 
+                    else if (record.interval) { s = record.interval; d = 5; lastReview = now - (record.interval * 86400000); }
                 }
 
-                this.memoryDB[wordId] = record;
-                this.sessionQueue.shift(); 
-                this.syncToCloud();
+                // 判断是否是真正的“复习卡”(间隔>=1天)
+                const isReviewCard = (s > 0 && record && record.interval >= 1);
+                
+                let nextS = s, nextD = d, interval = 0;
 
-                // 🔥 关键修正：不直接 renderNext，而是翻转到背面看答案
+                if (!isReviewCard) {
+                    // === 学习阶段逻辑 (Learning Steps) ===
+                    const steps = this.getStepIntervals(record);
+                    interval = steps[rating];
+                    
+                    // 只有选 Easy (4) 才算毕业进入 FSRS，否则保持 New 状态的 S/D
+                    if (rating === 4) {
+                        const res = FSRS.init(4); nextS = res.s; nextD = res.d; // Initialize FSRS params
+                    }
+                } else {
+                    // === 复习阶段逻辑 (FSRS) ===
+                    const daysElapsed = Math.max(0, (now - lastReview) / 86400000);
+                    const r = FSRS.getRetrievability(s, daysElapsed);
+                    
+                    if (rating === 1) {
+                        const res = FSRS.next(d, s, r, 1);
+                        nextS = res.s; nextD = res.d; interval = 0; // 忘记归零
+                    } else {
+                        const res = FSRS.next(d, s, r, rating);
+                        nextS = res.s; nextD = res.d;
+                        interval = FSRS.nextInterval(nextS);
+                    }
+                }
+
+                // 统计
+                if (rating === 1 && !isReviewCard) {} else {
+                    if (isReviewCard) { this.user.studyStats.todayRev++; this.user.studyStats.totalRev++; } 
+                    else { this.user.studyStats.todayNew++; }
+                }
+
+                // 计算下次时间
+                // 如果 interval < 1天，精确计算毫秒；如果 >= 1天，按天计算
+                let nextReviewTime = now + (interval * 24 * 60 * 60 * 1000);
+
+                this.memoryDB[wordId] = { 
+                    s: Number(nextS.toFixed(4)), 
+                    d: Number(nextD.toFixed(4)), 
+                    interval: interval, 
+                    nextReview: nextReviewTime, 
+                    lastReview: now 
+                };
+
+                // 队列处理：如果是分钟级间隔（interval < 1），插入到前面
+                this.sessionQueue.shift(); 
+                if (interval < 1.0) {
+                    // 插队算法：根据间隔长短插入
+                    // 1分钟的插到第3个，10分钟插到第10个
+                    let insertIndex = 3;
+                    if(interval > 0.005) insertIndex = 10; // > 7 mins
+                    
+                    insertIndex = Math.min(this.sessionQueue.length, insertIndex);
+                    this.sessionQueue.splice(insertIndex, 0, this.currentCard);
+                }
+                
+                this.syncToCloud();
                 this.isFlipped = true;
                 document.getElementById('card').classList.add('flipped');
-                document.getElementById('ctrl-bar').classList.add('hidden'); // 隐藏选项
+                document.getElementById('ctrl-bar').classList.add('hidden');
             },
 
-            syncToCloud() {
+            openStats() {
+                document.getElementById('dashboard-layer').style.display = 'none';
+                document.getElementById('stats-layer').style.display = 'flex';
+                const s = this.user.studyStats;
+                const d = new Date();
+                const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                if(s.lastDate !== todayKey) { s.todayNew = 0; s.todayRev = 0; }
+                document.getElementById('st-today-new').innerText = s.todayNew || 0;
+                document.getElementById('st-today-rev').innerText = s.todayRev || 0;
+                const todayTime = s.history[todayKey] || 0;
+                document.getElementById('st-today-time').innerText = Math.floor(todayTime) + "m";
+                document.getElementById('st-total-rev').innerText = s.totalRev || 0;
+                document.getElementById('st-total-time').innerText = Math.floor(s.totalTime || 0) + "m";
+                this.refreshDashboard(); // Sync mature count
+                this.renderChart(this.currentChartMode);
+            },
+            closeStats() { document.getElementById('stats-layer').style.display = 'none'; document.getElementById('dashboard-layer').style.display = 'flex'; },
+            switchChart(mode, btn) { document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); this.renderChart(mode); },
+            renderChart(mode) {
+                const ctx = document.getElementById('timeChart').getContext('2d');
+                if(this.chartInstance) this.chartInstance.destroy();
+                let labels = [], data = [];
+                const history = this.user.studyStats.history || {};
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                if (mode === 'week') {
+                    const weekDays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+                    let dayOfWeek = now.getDay(); if(dayOfWeek === 0) dayOfWeek = 7; 
+                    const mondayDate = new Date(now); mondayDate.setDate(now.getDate() - dayOfWeek + 1);
+                    for(let i=0; i<7; i++) {
+                        const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i);
+                        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                        labels.push(weekDays[i]); data.push(Math.floor(history[key] || 0));
+                    }
+                } else if (mode === 'month') {
+                    for(let m=1; m<=12; m++) {
+                        labels.push(m + '月');
+                        const prefix = `${currentYear}-${String(m).padStart(2, '0')}`;
+                        let monthTotal = 0;
+                        for (let dateKey in history) { if (dateKey.startsWith(prefix)) monthTotal += history[dateKey]; }
+                        data.push(Math.floor(monthTotal));
+                    }
+                } else if (mode === 'year') {
+                    const regDate = new Date(this.user.createdAt);
+                    const startYear = regDate.getFullYear();
+                    for(let y = startYear; y <= currentYear; y++) {
+                        labels.push(y + '年');
+                        let yearTotal = 0;
+                        for (let dateKey in history) { if (dateKey.startsWith(String(y))) yearTotal += history[dateKey]; }
+                        data.push(Math.floor(yearTotal));
+                    }
+                }
+                this.chartInstance = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: '分钟', data: data, backgroundColor: '#3498db', borderRadius: 4, barPercentage: 0.6 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } } });
+            },
+            syncToCloud() { 
                 if (this.user) {
-                    this.request(`ActivationCodes/${this.user.objectId}`, 'PUT', { memoryDB: this.memoryDB });
+                    const now = Date.now();
+                    const deltaMins = (now - this.sessionStartTime) / 60000;
+                    this.sessionStartTime = now;
+                    this.user.studyStats.totalTime += deltaMins;
+                    const d = new Date();
+                    const dateKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                    if(!this.user.studyStats.history) this.user.studyStats.history = {};
+                    if(!this.user.studyStats.history[dateKey]) this.user.studyStats.history[dateKey] = 0;
+                    this.user.studyStats.history[dateKey] += deltaMins;
+                    this.request(`ActivationCodes/${this.user.objectId}`, 'PUT', { memoryDB: this.memoryDB, studyStats: this.user.studyStats }); 
                 }
             },
-
-            backToDash() {
-                document.getElementById('app-layer').style.display = 'none';
-                document.getElementById('dashboard-layer').style.display = 'flex';
-                this.refreshDashboard();
-            },
-
-            playAudio(text) {
-                const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
-                new Audio(url).play().catch(()=>{});
-            },
-            
-            manualPlay(e) {
-                e.stopPropagation();
-                this.playAudio(this.currentCard.f);
-            },
-
-            autoFixData(rawData) {
-                if (!rawData || !rawData.length) return [];
-                const sample = rawData[0];
-                if (sample.f && sample.b) return rawData;
-                const keys = Object.keys(sample).filter(k => !['objectId','createdAt','updatedAt','ACL','rank'].includes(k));
-                let kw=keys[0], km=keys[1]||keys[0];
-                for (let k of keys) {
-                    if (/[\u4e00-\u9fa5]/.test(sample[k])) km = k;
-                    else if (/^[a-zA-Z\s\-\.]+$/.test(sample[k])) kw = k;
-                }
-                return rawData.map(i => ({ f: i[kw], b: i[km], rank: i.rank, objectId: i.objectId }));
-            }
+            backToDash() { document.getElementById('app-layer').style.display = 'none'; document.getElementById('dashboard-layer').style.display = 'flex'; this.refreshDashboard(); },
+            playAudio(text) { const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`; new Audio(url).play().catch(()=>{}); },
+            manualPlay(e) { e.stopPropagation(); this.playAudio(this.currentCard.f); },
+            autoFixData(rawData) { if(!rawData) return []; return rawData.map(i => ({ f: i.Word || i.f, b: i.Meaning || i.b, rank: i.rank, objectId: i.objectId })); },
+            handleCardClick() { if (this.isFlipped) this.renderNext(); else this.playAudio(this.currentCard.f); },
         };
+
+        // 🔥 启动时尝试自动登录
+        app.init();
     </script>
 </body>
 </html>
