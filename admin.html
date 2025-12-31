@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Anki Pro - 商家后台管理 (安全版)</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; height: 100vh; }
+        .sidebar { width: 200px; background: #001529; color: white; display: flex; flex-direction: column; }
+        .sidebar h2 { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin: 0; font-size: 18px; }
+        .menu-item { padding: 15px 20px; cursor: pointer; border-left: 4px solid transparent; transition: 0.3s; color: #a6adb4; }
+        .menu-item:hover, .menu-item.active { background: #1890ff; color: white; border-left-color: white; }
+        .main { flex: 1; padding: 30px; overflow-y: auto; }
+        .card-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+        .stat-box { background: white; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 32px; font-weight: bold; color: #1890ff; }
+        .stat-label { color: #888; font-size: 14px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .btn-primary { background: #1890ff; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #fafafa; color: #666; font-weight: 600; }
+        tr:hover { background: #f0f7ff; }
+        .tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .tag-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .tag-gray { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
+        #login-layer { position: fixed; top:0; left:0; width:100%; height:100%; background:#001529; z-index:999; display:flex; justify-content:center; align-items:center; }
+        .login-box { background:white; padding:40px; border-radius:8px; width:300px; text-align:center; }
+        .login-input { width:100%; padding:10px; margin:15px 0; border:1px solid #ddd; border-radius:4px; box-sizing: border-box; }
+        .note-btn { background: none; border: none; cursor: pointer; font-size: 14px; color: #999; }
+        .note-btn:hover { color: #1890ff; }
+    </style>
+</head>
+<body>
+
+    <div id="login-layer">
+        <div class="login-box">
+            <h2>管理员登录</h2>
+            <input type="password" id="admin-pwd" class="login-input" placeholder="密码">
+            <button class="btn btn-primary" style="width:100%" onclick="checkLogin()">登录</button>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2>Anki Pro 管理台</h2>
+        <div class="menu-item active">激活码管理</div>
+        <div class="menu-item" onclick="alert('单词管理请使用 manager.html')">单词管理</div>
+    </div>
+
+    <div class="main">
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div><div class="stat-label">总激活码</div><div class="stat-num" id="total-count">0</div></div>
+                <div style="font-size:30px">📦</div>
+            </div>
+            <div class="stat-box">
+                <div><div class="stat-label">已激活</div><div class="stat-num" id="used-count" style="color:#52c41a">0</div></div>
+                <div style="font-size:30px">💰</div>
+            </div>
+            <div class="stat-box">
+                <div><div class="stat-label">库存</div><div class="stat-num" id="left-count" style="color:#faad14">0</div></div>
+                <div style="font-size:30px">📉</div>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>用户列表</h3>
+                <div>
+                    <input type="number" id="gen-num" value="10" style="width:60px; padding:6px;">
+                    <button class="btn btn-primary" onclick="generateCodes()">✨ 生成8位强密码</button>
+                    <button class="btn" onclick="loadData()">🔄 刷新</button>
+                </div>
+            </div>
+            
+            <div style="height:500px; overflow-y:auto;">
+                <table id="code-table">
+                    <thead>
+                        <tr>
+                            <th>激活码</th>
+                            <th>备注</th>
+                            <th>状态</th>
+                            <th>今日(新+复)</th>
+                            <th>今日时长</th>
+                            <th>历史记录</th>
+                            <th>累计时长</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="7">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BMOB_APP_ID  = "245c234dd2d5ab723c1f00eaca1474cf";
+        const BMOB_API_KEY = "999401489c1ab0d956f5f8db34e97afb";
+        const ADMIN_PASSWORD = "888"; 
+
+        function checkLogin() {
+            if(document.getElementById('admin-pwd').value === ADMIN_PASSWORD) {
+                document.getElementById('login-layer').style.display = 'none';
+                loadData();
+            } else alert("密码错误");
+        }
+
+        async function bmobRequest(path, method = 'GET', body = null) {
+            const url = `https://api.bmobcloud.com/1/classes/${path}`;
+            const headers = { "X-Bmob-Application-Id": BMOB_APP_ID, "X-Bmob-REST-API-Key": BMOB_API_KEY, "Content-Type": "application/json" };
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(url, options);
+            return await res.json();
+        }
+
+        // 🔥 新增：生成随机字符串的函数（更安全）
+        function makeId(length) {
+            let result = '';
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            for (let i = 0; i < length; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return result;
+        }
+
+        async function loadData() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '<tr><td colspan="7">加载中...</td></tr>';
+            try {
+                const res = await bmobRequest('ActivationCodes?order=-createdAt&limit=500');
+                const list = res.results || [];
+                let used = 0, html = '';
+
+                // 获取今日日期 Key (格式 YYYY-MM-DD，注意时区问题，这里简单处理)
+                const d = new Date();
+                const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+                list.forEach(item => {
+                    const isUsed = item.studyStats && item.studyStats.totalTime > 0;
+                    if(isUsed) used++;
+
+                    const statusBadge = isUsed ? `<span class="tag tag-green">学习中</span>` : `<span class="tag tag-gray">未激活</span>`;
+                    const stats = item.studyStats || { totalTime: 0, todayNew: 0, todayRev: 0, history: {} };
+                    
+                    // 修正：计算今日总词数 (新词+复习)
+                    const todayWords = (stats.todayNew || 0) + (stats.todayRev || 0);
+
+                    // 获取今日时长 (从history里取)
+                    let todayMins = 0;
+                    if(stats.history && stats.history[todayKey]) {
+                        todayMins = stats.history[todayKey];
+                    }
+                    
+                    const note = item.note || "无备注";
+                    const noteColor = item.note ? "#333" : "#ccc";
+
+                    // 把 history 转成字符串，存到按钮的 data 属性里
+                    const historyStr = stats.history ? encodeURIComponent(JSON.stringify(stats.history)) : "";
+
+                    html += `
+                        <tr>
+                            <td style="font-family:monospace; font-weight:bold; color:#1890ff; font-size:16px;">${item.code}</td>
+                            <td>
+                                <span style="color:${noteColor}; margin-right:5px;">${note}</span>
+                                <button class="note-btn" onclick="editNote('${item.objectId}', '${note}')">✏️</button>
+                            </td>
+                            <td>${statusBadge}</td>
+                            <td style="color:#00b894; font-weight:bold;">${todayWords} 词</td>
+                            <td style="font-weight:bold;">${Math.floor(todayMins)} m</td>
+                            <td>
+                                <button class="btn" style="font-size:12px; padding:4px 8px;" onclick="showHistory('${historyStr}')">📅 查看</button>
+                            </td>
+                            <td style="color:#888;">${Math.floor(stats.totalTime || 0)} m</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+                document.getElementById('total-count').innerText = list.length;
+                document.getElementById('used-count').innerText = used;
+                document.getElementById('left-count').innerText = list.length - used;
+            } catch(e) { alert("加载失败: " + e.message); }
+        }
+
+        function showHistory(encodedJson) {
+            if(!encodedJson) return alert("暂无历史数据");
+            const history = JSON.parse(decodeURIComponent(encodedJson));
+            
+            const dates = Object.keys(history).sort().reverse();
+            if(dates.length === 0) return alert("暂无历史数据");
+
+            let msg = "📅 每日学习时长记录：\n----------------------\n";
+            dates.forEach(date => {
+                msg += `${date}:  ${Math.floor(history[date])} 分钟\n`;
+            });
+            alert(msg);
+        }
+
+        async function editNote(objectId, oldNote) {
+            const newNote = prompt("修改备注:", oldNote === "无备注" ? "" : oldNote);
+            if(newNote === null) return;
+            try { await bmobRequest(`ActivationCodes/${objectId}`, 'PUT', { note: newNote }); loadData(); } catch(e) { alert("修改失败"); }
+        }
+
+        async function generateCodes() {
+            const num = parseInt(document.getElementById('gen-num').value);
+            if(!num || num <= 0) return alert("数量不对");
+            if(!confirm(`生成 ${num} 个 8位强密码激活码？`)) return;
+            
+            const requests = [];
+            // 🔥 初始化的空数据结构，防止新用户报错
+            const initialStats = { 
+                "totalTime": 0, "totalRev": 0, "todayNew": 0, "todayRev": 0, 
+                "lastDate": "", "history": {} 
+            };
+
+            for(let i=0; i<num; i++) {
+                // 使用新的生成函数
+                const code = makeId(8);
+                requests.push({ 
+                    "method": "POST", 
+                    "path": "/1/classes/ActivationCodes", 
+                    "body": { 
+                        "code": code,
+                        "studyStats": initialStats,
+                        "memoryDB": {} 
+                    } 
+                });
+            }
+            try {
+                const res = await fetch(`https://api.bmobcloud.com/1/batch`, {
+                    method: 'POST',
+                    headers: { "X-Bmob-Application-Id": BMOB_APP_ID, "X-Bmob-REST-API-Key": BMOB_API_KEY, "Content-Type": "application/json" },
+                    body: JSON.stringify({ requests })
+                });
+                if(res.ok) { alert(`成功生成 ${num} 个激活码！`); loadData(); } else alert("生成失败");
+            } catch(e) { alert("出错"); }
+        }
+    </script>
+</body>
+</html>
