@@ -40,7 +40,7 @@
         .flashcard.flipped { transform: rotateY(180deg); }
         .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box; text-align: center; }
         .back { transform: rotateY(180deg); background: #fff; }
-        .speaker-box { width: 80px; height: 80px; border: 1px solid #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px; cursor: pointer; }
+        .speaker-box { width: 80px; height: 80px; border: 1px solid #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px; cursor: pointer; transition: 0.2s; }
         .word-en { font-size: 42px; font-weight: 300; margin-bottom: 20px; }
         .word-cn { font-size: 18px; color: #666; font-weight: 300; line-height: 1.6; }
         .actions { height: 100px; background: #fff; display: flex; align-items: center; justify-content: center; gap: 15px; border-top: 1px solid #f9f9f9; padding: 0 20px; transition: opacity 0.2s; }
@@ -54,9 +54,54 @@
         .g-2 { background: #fffcf5; color: var(--c-orange); }
         .g-3 { background: #f5faff; color: var(--c-blue); }
         .g-4 { background: #f5fbf8; color: var(--c-green); }
+        
+        .undo-btn { color: #ccc; cursor: default; transition: 0.3s; margin-left: 15px; }
+        .undo-btn.active { color: #1890ff; cursor: pointer; }
+
+        #toast {
+            visibility: hidden;
+            min-width: 120px;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 12px 24px;
+            position: fixed;
+            z-index: 300;
+            left: 50%;
+            bottom: 120px;
+            transform: translateX(-50%);
+            font-size: 14px;
+            opacity: 0;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; bottom: 120px; }
+            10% { opacity: 1; bottom: 130px; }
+            90% { opacity: 1; bottom: 130px; }
+            100% { opacity: 0; bottom: 120px; }
+        }
+        #toast.show { visibility: visible; animation: fadeInOut 2s forwards; }
+
+        /* 🔥 新增：播放动画 */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+        }
+        /* 播放时的样式类 */
+        .speaker-box.playing {
+            animation: pulse 1s infinite;
+            border-color: #3498db;
+            background-color: #f0f9ff;
+        }
+        .speaker-box.playing svg {
+            fill: #3498db;
+        }
     </style>
 </head>
 <body>
+    <div id="toast"></div>
+
     <div id="auth-layer">
         <input type="text" id="code-input" class="input-box" placeholder="输入激活码" spellcheck="false">
         <button class="btn-start" onclick="app.login()" id="login-btn">进入</button>
@@ -92,7 +137,17 @@
         <div style="height: 50px;"></div>
     </div>
     <div id="app-layer">
-        <div class="status-bar"><div onclick="app.backToDash()" style="cursor:pointer;">← 暂停</div><div><span style="color:#3498db; font-size:12px;">●</span> <span id="sess-new">0</span><span style="color:#e74c3c; font-size:12px; margin-left:5px;">●</span> <span id="sess-due">0</span></div></div>
+        <div class="status-bar">
+            <div style="display:flex; align-items:center;">
+                <div onclick="app.backToDash()" style="cursor:pointer;">← 暂停</div>
+                <div id="btn-undo" class="undo-btn" onclick="app.undo()">⟲ 撤销</div>
+            </div>
+            <div>
+                <span style="color:#3498db; font-size:12px;">●</span> <span id="sess-new">0</span>
+                <span style="color:#e74c3c; font-size:12px; margin-left:5px;">●</span> <span id="sess-due">0</span>
+            </div>
+        </div>
+        
         <div class="stage"><div class="flashcard" id="card" onclick="app.handleCardClick()"><div class="face front"><div class="speaker-box" onclick="app.manualPlay(event)"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></div><div class="hint">点击听音</div></div><div class="face back"><div class="word-en" id="txt-word">...</div><div class="word-cn" id="txt-mean">...</div><div class="hint" style="margin-top:40px; color:#ddd;">点击继续</div></div></div></div>
         <div class="actions" id="ctrl-bar"><button class="btn-opt g-1" onclick="app.grade(1)">忘记<span id="int-1">1m</span></button><button class="btn-opt g-2" onclick="app.grade(2)">模糊<span id="int-2">Hard</span></button><button class="btn-opt g-3" onclick="app.grade(3)">认识<span id="int-3">Good</span></button><button class="btn-opt g-4" onclick="app.grade(4)">掌握<span id="int-4">Easy</span></button></div>
     </div>
@@ -100,50 +155,86 @@
         const BMOB_APP_ID  = "245c234dd2d5ab723c1f00eaca1474cf";
         const BMOB_API_KEY = "999401489c1ab0d956f5f8db34e97afb";
         const FSRS = { p: [0.40255, 1.18385, 3.173, 15.69105, 7.19605, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.41, 0.6631, 2.33715, 0.2315, 2.9898, 0.51655, 0.6621], requestRetention: 0.9, maxInterval: 36500, nextInterval(s) { return Math.min(Math.max(1, Math.round(s * 9 * (1/this.requestRetention - 1))), this.maxInterval); }, init(rating) { const s = this.p[rating - 1]; let d = this.p[4] - (rating - 3) * this.p[5]; return { s, d: Math.min(Math.max(1, d), 10) }; }, next(d, s, r, rating) { let nextD = Math.min(Math.max(1, (d - this.p[6] * (rating - 3)) * (1 - this.p[7]) + this.p[7] * this.p[4]), 10); let nextS = s; if (rating === 1) nextS = this.p[11] * Math.pow(nextD, -this.p[12]) * (Math.pow(s + 1, this.p[13]) - 1) * Math.exp(this.p[14] * (1 - r)); else { let hardPenalty = rating === 2 ? this.p[15] : 1; let easyBonus = rating === 4 ? this.p[16] : 1; nextS = s * (1 + Math.exp(this.p[8]) * (11 - nextD) * Math.pow(s, -this.p[9]) * (Math.exp(this.p[10] * (1 - r)) - 1) * hardPenalty * easyBonus); } return { s: Number(nextS.toFixed(4)), d: Number(nextD.toFixed(4)) }; }, getRetrievability(s, days) { return Math.pow(1 + days / (9 * s), -1); } };
-        const app = { user: null, allWords: [], memoryDB: {}, sessionQueue: [], currentCard: null, isFlipped: false, sessionStartTime: 0, chartInstance: null, currentChartMode: 'week', maxNewCards: 99999,
+        
+        const app = { 
+            user: null, allWords: [], memoryDB: {}, sessionQueue: [], currentCard: null, isFlipped: false, sessionStartTime: 0, chartInstance: null, currentChartMode: 'week', maxNewCards: 99999,
+            actionHistory: [],
+            toastTimer: null,
+
             async init() { const savedCode = localStorage.getItem('anki_code'); if(savedCode) { document.getElementById('code-input').value = savedCode; this.login(); } },
             async request(path, method='GET', body=null) { const res = await fetch(`https://api.bmobcloud.com/1/classes/${path}`, { method, headers: { "X-Bmob-Application-Id": BMOB_APP_ID, "X-Bmob-REST-API-Key": BMOB_API_KEY, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : null }); return await res.json(); },
             async login() { const code = document.getElementById('code-input').value.trim(); const btn = document.getElementById('login-btn'); if(!code) return alert("请输入激活码"); btn.textContent = "加载中..."; btn.disabled = true; try { const uRes = await this.request(`ActivationCodes?where=${encodeURIComponent(JSON.stringify({code}))}`); if(!uRes.results || uRes.results.length === 0) throw new Error("激活码无效"); this.user = uRes.results[0]; localStorage.setItem('anki_code', code); this.memoryDB = this.user.memoryDB || {}; if(!this.user.studyStats) this.user.studyStats = { totalTime: 0, totalRev: 0, todayNew: 0, todayRev: 0, lastDate: "", history: {} }; await this.loadAllWords(btn); this.refreshDashboard(); document.getElementById('auth-layer').style.display = 'none'; document.getElementById('dashboard-layer').style.display = 'flex'; } catch(e) { document.getElementById('error-msg').textContent = e.message; btn.textContent = "进入"; btn.disabled = false; localStorage.removeItem('anki_code'); } },
             async loadAllWords(btnElement) { this.allWords = []; let skip = 0; let limit = 500; try { while(true) { if(btnElement) btnElement.textContent = `加载中 (${this.allWords.length})...`; const res = await this.request(`Words?order=-rank&limit=${limit}&skip=${skip}`); const batch = res.results || []; this.allWords = this.allWords.concat(this.autoFixData(batch)); if(batch.length < limit) break; skip += limit; } if(btnElement) btnElement.textContent = "加载完成"; const statusEl = document.getElementById('loading-status'); if(statusEl) statusEl.textContent = `(词库: ${this.allWords.length})`; } catch(e) { console.error("词库加载中断:", e); if(btnElement) btnElement.textContent = "词库加载失败"; } },
             refreshDashboard() { const now = Date.now(); let dueCount = 0, matureCount = 0, learnCount = 0; const d = new Date(); const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if(this.user.studyStats.lastDate !== todayKey) { this.user.studyStats.todayNew = 0; this.user.studyStats.todayRev = 0; this.user.studyStats.lastDate = todayKey; } for (let id in this.memoryDB) { const rec = this.memoryDB[id]; if (rec.interval && rec.interval > 21) matureCount++; else if (rec.interval && rec.interval > 0) learnCount++; if (rec.nextReview <= now) dueCount++; } const remainingNew = Math.max(0, this.allWords.length - Object.keys(this.memoryDB).length); document.getElementById('count-due').textContent = dueCount; document.getElementById('count-new').textContent = remainingNew; const elMature = document.getElementById('st-total-mature'); if(elMature) elMature.textContent = matureCount; const elYoung = document.getElementById('st-total-young'); if(elYoung) elYoung.textContent = learnCount; },
-            startSession() { this.refreshDashboard(); if(this.allWords.length === 0) return alert("词库为空"); const now = Date.now(); this.sessionQueue = []; const dueWords = this.allWords.filter(w => { const r = this.memoryDB[w.objectId]; return r && r.nextReview <= now; }); const learnedIds = Object.keys(this.memoryDB); const newWords = this.allWords.filter(w => !learnedIds.includes(w.objectId)); this.sessionQueue = [...dueWords, ...newWords]; if (this.sessionQueue.length === 0) return alert("今日任务已完成！🎉"); this.sessionStartTime = Date.now(); document.getElementById('dashboard-layer').style.display = 'none'; document.getElementById('app-layer').style.display = 'flex'; this.renderNext(); },
-            
-            // 🔥 核心修正：加入 300ms 延迟，解决翻转时文字穿帮问题
-            renderNext() { 
-                if (this.sessionQueue.length === 0) { alert("学习完成"); return this.backToDash(); } 
-                
-                // 1. 先把卡片翻回来（开始动画），并清空翻转标记
-                document.getElementById('card').classList.remove('flipped'); 
-                document.getElementById('ctrl-bar').classList.remove('hidden'); // 显示按钮（注：原逻辑是Front显示按钮，若您逻辑不同请自行调整）
-                this.isFlipped = false;
-
-                // 2. 延迟 300毫秒（等卡片侧面对着你，看不见内容时）再换文字
-                setTimeout(() => {
-                    const qNew = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length; 
-                    const qDue = this.sessionQueue.length - qNew; 
-                    document.getElementById('sess-new').textContent = qNew; 
-                    document.getElementById('sess-due').textContent = qDue; 
-                    
-                    this.currentCard = this.sessionQueue[0]; 
-                    document.getElementById('txt-word').textContent = this.currentCard.f; 
-                    document.getElementById('txt-mean').textContent = this.currentCard.b || ""; 
-                    this.updateButtonLabels(this.currentCard.objectId); 
-                    
-                    // 文字换好后，再播声音
-                    setTimeout(() => this.playAudio(this.currentCard.f), 200);
-                }, 300); 
-            },
-
+            startSession() { this.refreshDashboard(); if(this.allWords.length === 0) return alert("词库为空"); const now = Date.now(); this.sessionQueue = []; const dueWords = this.allWords.filter(w => { const r = this.memoryDB[w.objectId]; return r && r.nextReview <= now; }); const learnedIds = Object.keys(this.memoryDB); const newWords = this.allWords.filter(w => !learnedIds.includes(w.objectId)); this.sessionQueue = [...dueWords, ...newWords]; if (this.sessionQueue.length === 0) return alert("今日任务已完成！🎉"); this.sessionStartTime = Date.now(); this.actionHistory = []; this.updateUndoBtn(false); document.getElementById('dashboard-layer').style.display = 'none'; document.getElementById('app-layer').style.display = 'flex'; this.renderNext(); },
+            renderNext() { if (this.sessionQueue.length === 0) { alert("学习完成"); return this.backToDash(); } document.getElementById('card').classList.remove('flipped'); document.getElementById('ctrl-bar').classList.remove('hidden'); this.isFlipped = false; setTimeout(() => { const qNew = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length; const qDue = this.sessionQueue.length - qNew; document.getElementById('sess-new').textContent = qNew; document.getElementById('sess-due').textContent = qDue; this.currentCard = this.sessionQueue[0]; document.getElementById('txt-word').textContent = this.currentCard.f; document.getElementById('txt-mean').textContent = this.currentCard.b || ""; this.updateButtonLabels(this.currentCard.objectId); setTimeout(() => this.playAudio(this.currentCard.f), 200); }, 300); },
             getStepIntervals(record) { return { 1: 1/1440, 2: 5/1440, 3: 10/1440, 4: 1 }; },
             updateButtonLabels(wordId) { const now = Date.now(); let record = this.memoryDB[wordId]; let s = 0, d = 5, lastReview = now; if (record) { if (record.s !== undefined) { s = record.s; d = record.d; lastReview = record.lastReview; } else if (record.interval) { s = record.interval; d = 5; lastReview = now - (record.interval * 86400000); } } const isReview = (s > 0 && record && record.interval >= 1); const daysElapsed = Math.max(0, (now - lastReview) / 86400000); const r = isReview ? FSRS.getRetrievability(s, daysElapsed) : 0; const fmt = (days) => { if (days * 1440 < 60) return Math.round(days*1440) + "m"; if (days < 1) return (days*24).toFixed(1) + "h"; return days >= 365 ? (days/365).toFixed(1)+"y" : (days >= 30 ? (days/30).toFixed(1)+"mo" : Math.round(days)+"d"); }; if (!isReview) { const steps = this.getStepIntervals(record); document.getElementById('int-1').innerText = fmt(steps[1]); document.getElementById('int-2').innerText = fmt(steps[2]); document.getElementById('int-3').innerText = fmt(steps[3]); document.getElementById('int-4').innerText = fmt(steps[4]); } else { const getIv = (r) => { if(r===1) return 0; const res = FSRS.next(d, s, r, r); return FSRS.nextInterval(res.s); }; document.getElementById('int-1').innerText = "1m"; document.getElementById('int-2').innerText = fmt(getIv(2)); document.getElementById('int-3').innerText = fmt(getIv(3)); document.getElementById('int-4').innerText = fmt(getIv(4)); } },
-            grade(rating) { if (this.isFlipped) return; const wordId = this.currentCard.objectId; const now = Date.now(); let record = this.memoryDB[wordId]; let s = 0, d = 5, lastReview = now; if (record) { if (record.s !== undefined) { s = record.s; d = record.d; lastReview = record.lastReview || now; } else if (record.interval) { s = record.interval; d = 5; lastReview = now - (record.interval * 86400000); } } const isReviewCard = (s > 0 && record && record.interval >= 1); let nextS = s, nextD = d, interval = 0; if (!isReviewCard) { const steps = this.getStepIntervals(record); interval = steps[rating]; if (rating === 4) { const res = FSRS.init(4); nextS = res.s; nextD = res.d; } } else { const daysElapsed = Math.max(0, (now - lastReview) / 86400000); const r = FSRS.getRetrievability(s, daysElapsed); if (rating === 1) { const res = FSRS.next(d, s, r, 1); nextS = res.s; nextD = res.d; interval = 0; } else { const res = FSRS.next(d, s, r, rating); nextS = res.s; nextD = res.d; interval = FSRS.nextInterval(nextS); } } if (rating === 1 && !isReviewCard) {} else { if (isReviewCard) { this.user.studyStats.todayRev++; this.user.studyStats.totalRev++; } else { this.user.studyStats.todayNew++; } } let nextReviewTime = now + (interval * 24 * 60 * 60 * 1000); this.memoryDB[wordId] = { s: Number(nextS.toFixed(4)), d: Number(nextD.toFixed(4)), interval: interval, nextReview: nextReviewTime, lastReview: now }; this.sessionQueue.shift(); if (interval < 1.0) { let insertIndex = 3; if(interval > 0.005) insertIndex = 10; insertIndex = Math.min(this.sessionQueue.length, insertIndex); this.sessionQueue.splice(insertIndex, 0, this.currentCard); } this.syncToCloud(); this.isFlipped = true; document.getElementById('card').classList.add('flipped'); document.getElementById('ctrl-bar').classList.add('hidden'); },
+            
+            grade(rating) { 
+                if (this.isFlipped) return; 
+                const wordId = this.currentCard.objectId; 
+                const snapshot = { card: this.currentCard, dbRecord: this.memoryDB[wordId] ? JSON.parse(JSON.stringify(this.memoryDB[wordId])) : null, stats: JSON.parse(JSON.stringify(this.user.studyStats)), queue: [...this.sessionQueue] }; 
+                this.actionHistory.push(snapshot); if (this.actionHistory.length > 3) { this.actionHistory.shift(); } this.updateUndoBtn(true);
+                const now = Date.now(); let record = this.memoryDB[wordId]; let s = 0, d = 5, lastReview = now; if (record) { if (record.s !== undefined) { s = record.s; d = record.d; lastReview = record.lastReview || now; } else if (record.interval) { s = record.interval; d = 5; lastReview = now - (record.interval * 86400000); } } const isReviewCard = (s > 0 && record && record.interval >= 1); let nextS = s, nextD = d, interval = 0; if (!isReviewCard) { const steps = this.getStepIntervals(record); interval = steps[rating]; if (rating === 4) { const res = FSRS.init(4); nextS = res.s; nextD = res.d; } } else { const daysElapsed = Math.max(0, (now - lastReview) / 86400000); const r = FSRS.getRetrievability(s, daysElapsed); if (rating === 1) { const res = FSRS.next(d, s, r, 1); nextS = res.s; nextD = res.d; interval = 0; } else { const res = FSRS.next(d, s, r, rating); nextS = res.s; nextD = res.d; interval = FSRS.nextInterval(nextS); } } if (rating === 1 && !isReviewCard) {} else { if (isReviewCard) { this.user.studyStats.todayRev++; this.user.studyStats.totalRev++; } else { this.user.studyStats.todayNew++; } } let nextReviewTime = now + (interval * 24 * 60 * 60 * 1000); this.memoryDB[wordId] = { s: Number(nextS.toFixed(4)), d: Number(nextD.toFixed(4)), interval: interval, nextReview: nextReviewTime, lastReview: now }; this.sessionQueue.shift(); if (interval < 1.0) { let insertIndex = 3; if(interval > 0.005) insertIndex = 10; insertIndex = Math.min(this.sessionQueue.length, insertIndex); this.sessionQueue.splice(insertIndex, 0, this.currentCard); } 
+                this.syncToCloud(); this.isFlipped = true; document.getElementById('card').classList.add('flipped'); document.getElementById('ctrl-bar').classList.add('hidden'); 
+            },
+
+            undo() {
+                if (this.actionHistory.length === 0) return;
+                const snap = this.actionHistory.pop();
+                this.user.studyStats = snap.stats;
+                if (snap.dbRecord) { this.memoryDB[snap.card.objectId] = snap.dbRecord; } else { delete this.memoryDB[snap.card.objectId]; }
+                this.sessionQueue = snap.queue; 
+                this.currentCard = snap.card; 
+                this.isFlipped = false;
+                document.getElementById('card').classList.remove('flipped');
+                document.getElementById('ctrl-bar').classList.remove('hidden');
+                document.getElementById('txt-word').textContent = this.currentCard.f; 
+                document.getElementById('txt-mean').textContent = this.currentCard.b || ""; 
+                this.updateButtonLabels(this.currentCard.objectId);
+                const qNew = this.sessionQueue.filter(w => !this.memoryDB[w.objectId]).length;
+                document.getElementById('sess-new').textContent = qNew;
+                document.getElementById('sess-due').textContent = this.sessionQueue.length - qNew;
+                this.syncToCloud();
+                this.showToast("✅ 撤销成功");
+                if (this.actionHistory.length === 0) { this.updateUndoBtn(false); }
+            },
+
+            showToast(msg) {
+                const t = document.getElementById("toast");
+                t.innerText = msg;
+                if (this.toastTimer) clearTimeout(this.toastTimer);
+                t.classList.remove("show");
+                void t.offsetWidth; 
+                t.classList.add("show");
+                this.toastTimer = setTimeout(() => { t.classList.remove("show"); }, 2000);
+            },
+
+            updateUndoBtn(active) { const btn = document.getElementById('btn-undo'); if (active) { btn.classList.add('active'); } else { btn.classList.remove('active'); } },
             openStats() { document.getElementById('dashboard-layer').style.display = 'none'; document.getElementById('stats-layer').style.display = 'flex'; const s = this.user.studyStats; const d = new Date(); const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if(s.lastDate !== todayKey) { s.todayNew = 0; s.todayRev = 0; } document.getElementById('st-today-new').innerText = s.todayNew || 0; document.getElementById('st-today-rev').innerText = s.todayRev || 0; const todayTime = s.history[todayKey] || 0; document.getElementById('st-today-time').innerText = Math.floor(todayTime) + "m"; document.getElementById('st-total-rev').innerText = s.totalRev || 0; document.getElementById('st-total-time').innerText = Math.floor(s.totalTime || 0) + "m"; this.refreshDashboard(); this.renderChart(this.currentChartMode); },
             closeStats() { document.getElementById('stats-layer').style.display = 'none'; document.getElementById('dashboard-layer').style.display = 'flex'; },
             switchChart(mode, btn) { document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); this.renderChart(mode); },
             renderChart(mode) { const ctx = document.getElementById('timeChart').getContext('2d'); if(this.chartInstance) this.chartInstance.destroy(); let labels = [], data = []; const history = this.user.studyStats.history || {}; const now = new Date(); const currentYear = now.getFullYear(); if (mode === 'week') { const weekDays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]; let dayOfWeek = now.getDay(); if(dayOfWeek === 0) dayOfWeek = 7; const mondayDate = new Date(now); mondayDate.setDate(now.getDate() - dayOfWeek + 1); for(let i=0; i<7; i++) { const d = new Date(mondayDate); d.setDate(mondayDate.getDate() + i); const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); labels.push(weekDays[i]); data.push(Math.floor(history[key] || 0)); } } else if (mode === 'month') { for(let m=1; m<=12; m++) { labels.push(m + '月'); const prefix = `${currentYear}-${String(m).padStart(2, '0')}`; let monthTotal = 0; for (let dateKey in history) { if (dateKey.startsWith(prefix)) monthTotal += history[dateKey]; } data.push(Math.floor(monthTotal)); } } else if (mode === 'year') { const regDate = new Date(this.user.createdAt); const startYear = regDate.getFullYear(); for(let y = startYear; y <= currentYear; y++) { labels.push(y + '年'); let yearTotal = 0; for (let dateKey in history) { if (dateKey.startsWith(String(y))) yearTotal += history[dateKey]; } data.push(Math.floor(yearTotal)); } } this.chartInstance = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: '分钟', data: data, backgroundColor: '#3498db', borderRadius: 4, barPercentage: 0.6 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } } }); },
             syncToCloud() { if (this.user) { const now = Date.now(); const deltaMins = (now - this.sessionStartTime) / 60000; this.sessionStartTime = now; this.user.studyStats.totalTime += deltaMins; const d = new Date(); const dateKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if(!this.user.studyStats.history) this.user.studyStats.history = {}; if(!this.user.studyStats.history[dateKey]) this.user.studyStats.history[dateKey] = 0; this.user.studyStats.history[dateKey] += deltaMins; this.request(`ActivationCodes/${this.user.objectId}`, 'PUT', { memoryDB: this.memoryDB, studyStats: this.user.studyStats }); } },
             backToDash() { document.getElementById('app-layer').style.display = 'none'; document.getElementById('dashboard-layer').style.display = 'flex'; this.refreshDashboard(); },
-            playAudio(text) { const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`; new Audio(url).play().catch(()=>{}); },
+            
+            // 🔥 核心修正：JS 播放动画
+            playAudio(text) { 
+                const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`; 
+                const audio = new Audio(url);
+                const speaker = document.querySelector('.speaker-box');
+                
+                // 1. 开始动画
+                if(speaker) speaker.classList.add('playing');
+                
+                // 2. 播放失败或结束时停止动画
+                audio.onended = () => { if(speaker) speaker.classList.remove('playing'); };
+                audio.onerror = () => { if(speaker) speaker.classList.remove('playing'); };
+                
+                audio.play().catch(()=>{ if(speaker) speaker.classList.remove('playing'); }); 
+            },
+            
             manualPlay(e) { e.stopPropagation(); this.playAudio(this.currentCard.f); },
             autoFixData(rawData) { if(!rawData) return []; return rawData.map(i => ({ f: i.Word || i.f, b: i.Meaning || i.b, rank: i.rank, objectId: i.objectId })); },
             handleCardClick() { if (this.isFlipped) this.renderNext(); else this.playAudio(this.currentCard.f); },
